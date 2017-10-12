@@ -54,13 +54,13 @@ pos.mzml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzXML"
 pos.mzml
 ```
 
-PEAK PICKING METHOD
-- 'matchedfilter' is used by default (when 'xcmsSet' method is used for loading data)
-- 'centWave' is commonly used for high resolution spectra/MS data
-- Irregardless of the peak picking method chosen, there are many parameters that can be tuned. The rule of thumb is, if you do not understand what a parameter exactly does, then it is best to use the default value.
-- "Mass deviation μ in ppm, typically set to a generous multiple of the mass accuracy of the mass spectrometer. We use μ = 30 ppm for the Bruker MicrOTOF-Q, which is advertised with a mass accuracy of 3–5 ppm". (doi: 10.1186/1471-2105-9-504)
-- Q: How do we find the best tuning parameters for our dataset? (e.g. 'fwhm' specifies full width at half maximum (default is 30s) based on the type of chromatography)
-- Q: Is it a good idea to load all sample sets (Fresh, Frozen 24h, Frozen 1w) into one xcmsSet? To a high degree, this may not be a good idea, especially when samples are from different experiments
+**PEAK PICKING METHOD**  
+- 'matchedfilter' is used by default (when 'xcmsSet' method is used for loading data)  
+- 'centWave' is commonly used for high resolution spectra/MS data  
+- Irregardless of the peak picking method chosen, there are many parameters that can be tuned. The rule of thumb is, if you do not understand what a parameter exactly does, then it is best to use the default value.  
+- "Mass deviation μ in ppm, typically set to a generous multiple of the mass accuracy of the mass spectrometer. We use μ = 30 ppm for the Bruker MicrOTOF-Q, which is advertised with a mass accuracy of 3–5 ppm". (doi: 10.1186/1471-2105-9-504)  
+- Q: How do we find the best tuning parameters for our dataset? (e.g. 'fwhm' specifies full width at half maximum (default is 30s) based on the type of chromatography)  
+- Q: Is it a good idea to load all sample sets (Fresh, Frozen 24h, Frozen 1w) into one xcmsSet? To a high degree, this may not be a good idea, especially when samples are from different experiments  
 
 ```{r xcmsSet for positive data / peak identification, include=FALSE}
 xset.pos <- xcmsSet(pos.mzml, method="centWaveWithPredictedIsotopeROIs", ppm=30)
@@ -78,28 +78,28 @@ colnames(xset.pos@peaks)
 dim(xset.pos@peaks)
 ```
 
-**mz** Intensity weighted mean of m/z values of the peak across scans.
-**mzmin** Minimum m/z of the peak.
-**mzmax** Maximum m/z of the peak.
-**rt** Retention time of the peak’s midpoint.
-**rtmin** Minimum retention time of the peak.
-**rtmax** Maximum retention time of the peak.
-**into** Integrated (original) intensity of the peak.
-**intf** Integrated intensity of the filtered peak.
-**maxo** Maximum intensity of the peak.
-**maxf** Maximum intensity of the filtered peak.
-**i** Rank of peak in merged EIC (<= max).
-**sn** Signal to noise ratio of the peak
+**mz** Intensity weighted mean of m/z values of the peak across scans.  
+**mzmin** Minimum m/z of the peak.  
+**mzmax** Maximum m/z of the peak.  
+**rt** Retention time of the peak’s midpoint.  
+**rtmin** Minimum retention time of the peak.  
+**rtmax** Maximum retention time of the peak.  
+**into** Integrated (original) intensity of the peak.  
+**intf** Integrated intensity of the filtered peak.  
+**maxo** Maximum intensity of the peak.  
+**maxf** Maximum intensity of the filtered peak.  
+**i** Rank of peak in merged EIC (<= max).  
+**sn** Signal to noise ratio of the peak  
 
-- Grouping has its own methods too (density, mzClust, nearest)
-Q: How do we tune grouping parameters? How do we find the best ones for our data?
+- Grouping has its own methods too (density, mzClust, nearest)  
+Q: How do we tune grouping parameters? How do we find the best ones for our data?  
 ```{r Grouping peaks representing the same analyte across samples / matching peaks across samples}
 xsg.pos <- group(xset.pos)
 ```
 
 
-There are a few retention time correction methods in xcms: Gaussian, Symmetric, and Obiwarp.
-Plot shows the data points used for regression and the resulting deviation profiles. It can be used for supervising the algorithm. The distribution of peak groups across retention time is also shown in the plot.
+There are a few retention time correction methods in xcms: Gaussian, Symmetric, and Obiwarp.  
+Plot shows the data points used for regression and the resulting deviation profiles. It can be used for supervising the algorithm. The distribution of peak groups across retention time is also shown in the plot.  
 ```{r Retention time correction}
 xsg.pos.retcor.gaussian <- retcor(xsg.pos, family="gaussian", plottype="mdevden")
 #xsg.pos.retcor.symmetric <- retcor(xsg.pos, family="symmetric", plottype="mdevden")
@@ -107,7 +107,7 @@ xsg.pos.retcor.gaussian <- retcor(xsg.pos, family="gaussian", plottype="mdevden"
 ```
 
 
-When re-grouping the retention time-corrected xset, parameters can also be re-tuned once more. For example, we can choose a narrower 'bw'.
+When re-grouping the retention time-corrected xset, parameters can also be re-tuned once more. For example, we can choose a narrower 'bw'.  
 ```{r Re-grouping peaks representing the same analyte across samples. Grouping/retention time correction can and must be repeated several times}
 xsg.gaus <- group(xsg.pos.retcor.gaussian)
 #xsg.sym <- group(xsg.pos.retcor.symmetric, bw=10)
@@ -122,7 +122,7 @@ xsg.gaus <- fillPeaks(xsg.gaus)
 ```
 
 
-"into" and "maxo" are (or at least seem to be) peak intensities and areas, respectively.
+"into" and "maxo" are (or at least seem to be) peak intensities and areas, respectively.  
 ```{r Results of peak detection}
 peaks(xsg.gaus)[1:10,]
 #peaks(xsg.sym)[1:10,]
@@ -132,8 +132,8 @@ dim(peaks(xsg.gaus)) ###Another way to do what was done in the previous line
 ```
 
 
-‘diffreport’ computes Welch's two-sample t-statistic for each analyte and ranks them by p-value. In brief, it performs univariate analysis on our peaks.
-Q: When using 'diffreport', it is possible to include three sample classes (or even many more) by defining the class1/class2 arguments as c("sample2","sample3"). Does that, however, have any impact on the final result? In brief, is there a difference between `class1=c("Mouse1", "Mouse2"), class2="Mouse5"` and `(class1="Mouse1", class2=c( "Mouse2","Mouse5"))`
+‘diffreport’ computes Welch's two-sample t-statistic for each analyte and ranks them by p-value. In brief, it performs univariate analysis on our peaks.  
+Q: When using 'diffreport', it is possible to include three sample classes (or even many more) by defining the class1/class2 arguments as c("sample2","sample3"). Does that, however, have any impact on the final result? In brief, is there a difference between `class1=c("Mouse1", "Mouse2"), class2="Mouse5"` and `(class1="Mouse1", class2=c( "Mouse2","Mouse5"))`  
 ```{r Extracting ion chromatograms for significant ions and reporting the most statistically significant differences in analyte intensities / A report showing the most significant differences between two sets of samples, message=FALSE}
 #rep.gaus <- diffreport(xsg.gaus, "Fresh", "Refrozen", "report", 10, metlin=0.15)
 rep.gaus <- diffreport(object=xsg.gaus, class1=c("Mouse1", "Mouse2"), class2="Mouse5", filebase="report", 50, metlin=0.15)
@@ -181,7 +181,7 @@ rm(dat)
 #plot(eiccor.gaus, col=as.numeric(phenoData(xsg.gaus)$class))
 ```
 
-Processing with peakML
+Processing with peakML  
 ```{r PeakML}
 PeakML.xcms.write(xsg.gaus, filename = "xset.peakml")
 
@@ -219,7 +219,7 @@ head(tic(MSn.set.exp)) ### the total ion current, as reported in the original ra
 head(fromFile(MSn.set.exp)) ### fromFile method returns the index of the file that the spectrum originates from.
 fromFile(MSn.set.exp[[15000]]) ### index of the file containing the 15000th spectrum
 
-MSnbase::plot(MSn.set.exp[[5000]]) ### plotting the 5000th spectrum
+#MSnbase::plot(MSn.set.exp[[5000]]) ### plotting the 5000th spectrum
 ```
 
 ```{r TIC plot}
@@ -264,9 +264,9 @@ spctr <- spectra(subs)[[1]]
 plot(mz(spctr), intensity(spctr), type = "h", xlab = "mz", ylab = "intensity", main=c("rt=", spctr@rt))
 ```
 
-peaks intensities are in columns
-"into" (integrated peak signal)
-"maxo" (maximum signal at the peak’s apex)
+peaks intensities are in columns  
+"into" (integrated peak signal)  
+"maxo" (maximum signal at the peak’s apex)  
 ```{r Peak detection}
 cwp <- CentWavePredIsoParam(ppm=30)
 msn.chpeaks <- findChromPeaks(MSn.set.exp, param = cwp)
