@@ -5,6 +5,18 @@ date: "August-September 2017"
 output: html_document
 ---
 
+Currently the pipeline encompasses the following steps:  
+- Convert .d folders (Agilent proprietary format) to mzXML or mzML using MSConvert from the ProteoWizard toolbox  
+- Use XCMS to analyze the data (pre-processing and univariate statistical analysis)  
+- Use MetaboAnalyst.ca for multivariate data analysis  
+  
+See these papers for some discussion on file formats:  
+- https://doi.org/10.1016/j.jasms.2010.06.014  
+- https://dx.doi.org/10.1007%2F978-1-60761-444-9_22  
+- https://dx.doi.org/10.1074%2Fmcp.R110.000133  
+  
+
+
 ```{r Setup, include=FALSE}
 ####Make sure you have the latest version of R and Rstudio
 if(!require(pacman)){install.packages("pacman")}
