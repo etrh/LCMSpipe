@@ -5,9 +5,9 @@
 
 2. Run "Git Bash" and type the following:
 
-	$ git config --global user.name 'user.name'
-	$ git config --global user.email 'email@address'
-	$ git clone https://YOUR_USERNAME_@bitbucket.org/ccpbioinfo/xcms.git
+	$ git config --global user.name 'user.name'  
+	$ git config --global user.email 'email@address'  
+	$ git clone https://YOUR_USERNAME_@bitbucket.org/ccpbioinfo/xcms.git  
 
 3. In RStudio, create a new project (Version Control > Git).
 
