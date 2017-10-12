@@ -1,0 +1,342 @@
+---
+title: "Pipeline for Analysis of Metabolomics Data in R"
+author: "Ashkan Zareie"
+date: "August-September 2017"
+output: html_document
+---
+
+```{r Setup, include=FALSE}
+####Make sure you have the latest version of R and Rstudio
+if(!require(pacman)){install.packages("pacman")}
+source("http://bioconductor.org/biocLite.R")
+if(!require(MSnbase)){biocLite("lgatto/MSnbase")}
+library(MSnbase)
+if(!require(devtools)){install.packages("devtools")}
+library(devtools)
+if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
+library(xcms)
+pacman::p_load("IPO")
+pacman::p_load("MASS", "rgl", "mzR", "splines", "doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2")
+if(!require(mzmatch.R)){
+download.file("http://puma.ibls.gla.ac.uk/mzmatch.R/mzmatch.R.tar.gz","mzmatch.R.tar.gz",cacheOK=FALSE)
+install.packages (pkgs="mzmatch.R.tar.gz",repos=NULL,type="source")
+file.remove ("mzmatch.R.tar.gz")}
+
+
+library(devtools)
+library(xcms)
+library(doParallel)
+library(RColorBrewer)
+library(MSnbase)
+library(plotly)
+library(IPO)
+library(plotly)
+library (rJava)
+library(mzmatch.R)
+.jinit ()
+mzmatch.init()
+
+
+###Experimental for now
+#library(apLCMS)
+#devtools::install_github("flajole/MApckg") ###R implementation of MetaboAnalyst.ca -- Doesn't work too well!
+#library(MApckg)
+```
+
+```{r Load positive data, include=FALSE}
+path.pos <- "C:/r/Freezing_Experiment/pos/Frozen" ####path to converted mzXML files
+###Get the files from \\primus.img.cas.cz\data\18_lab\Bioinformatics\Freezing_Experiment
+###"pos" stands for ESI+ (Electrospray ionization - positive polarity)
+###"neg" stands for ESI- (Electrospray ionization - negative polarity)
+###use MSConvert (http://proteowizard.sourceforge.net/)
+###Creating sub-directories for samples/batches are allowed and recommended
+pos.mzml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzXML")
+pos.mzml
+```
+
+PEAK PICKING METHOD
+- 'matchedfilter' is used by default (when 'xcmsSet' method is used for loading data)
+- 'centWave' is commonly used for high resolution spectra/MS data
+- Irregardless of the peak picking method chosen, there are many parameters that can be tuned. The rule of thumb is, if you do not understand what a parameter exactly does, then it is best to use the default value.
+- "Mass deviation μ in ppm, typically set to a generous multiple of the mass accuracy of the mass spectrometer. We use μ = 30 ppm for the Bruker MicrOTOF-Q, which is advertised with a mass accuracy of 3–5 ppm". (doi: 10.1186/1471-2105-9-504)
+- Q: How do we find the best tuning parameters for our dataset? (e.g. 'fwhm' specifies full width at half maximum (default is 30s) based on the type of chromatography)
+- Q: Is it a good idea to load all sample sets (Fresh, Frozen 24h, Frozen 1w) into one xcmsSet? To a high degree, this may not be a good idea, especially when samples are from different experiments
+
+```{r xcmsSet for positive data / peak identification, include=FALSE}
+xset.pos <- xcmsSet(pos.mzml, method="centWaveWithPredictedIsotopeROIs", ppm=30)
+###ppm is set to 30, hence peak picking can take a very long time to complete
+```
+
+
+```{r Viewing the constructed xcmsSet, echo=FALSE}
+xset.pos
+```
+
+
+```{r Peaks}
+colnames(xset.pos@peaks)
+dim(xset.pos@peaks)
+```
+
+**mz** Intensity weighted mean of m/z values of the peak across scans.
+**mzmin** Minimum m/z of the peak.
+**mzmax** Maximum m/z of the peak.
+**rt** Retention time of the peak’s midpoint.
+**rtmin** Minimum retention time of the peak.
+**rtmax** Maximum retention time of the peak.
+**into** Integrated (original) intensity of the peak.
+**intf** Integrated intensity of the filtered peak.
+**maxo** Maximum intensity of the peak.
+**maxf** Maximum intensity of the filtered peak.
+**i** Rank of peak in merged EIC (<= max).
+**sn** Signal to noise ratio of the peak
+
+- Grouping has its own methods too (density, mzClust, nearest)
+Q: How do we tune grouping parameters? How do we find the best ones for our data?
+```{r Grouping peaks representing the same analyte across samples / matching peaks across samples}
+xsg.pos <- group(xset.pos)
+```
+
+
+There are a few retention time correction methods in xcms: Gaussian, Symmetric, and Obiwarp.
+Plot shows the data points used for regression and the resulting deviation profiles. It can be used for supervising the algorithm. The distribution of peak groups across retention time is also shown in the plot.
+```{r Retention time correction}
+xsg.pos.retcor.gaussian <- retcor(xsg.pos, family="gaussian", plottype="mdevden")
+#xsg.pos.retcor.symmetric <- retcor(xsg.pos, family="symmetric", plottype="mdevden")
+#xsg.pos.retcor.obiwarp <- retcor.obiwarp(xsg.pos, plottype="deviation")
+```
+
+
+When re-grouping the retention time-corrected xset, parameters can also be re-tuned once more. For example, we can choose a narrower 'bw'.
+```{r Re-grouping peaks representing the same analyte across samples. Grouping/retention time correction can and must be repeated several times}
+xsg.gaus <- group(xsg.pos.retcor.gaussian)
+#xsg.sym <- group(xsg.pos.retcor.symmetric, bw=10)
+#xsg.obw <- group(xsg.pos.retcor.obiwarp, bw=10)
+```
+
+
+```{r Fill in missing peaks using original data, message=FALSE}
+xsg.gaus <- fillPeaks(xsg.gaus)
+#xsg.sym <- fillPeaks(xsg.sym)
+#xsg.obw <- fillPeaks(xsg.obw)
+```
+
+
+"into" and "maxo" are (or at least seem to be) peak intensities and areas, respectively.
+```{r Results of peak detection}
+peaks(xsg.gaus)[1:10,]
+#peaks(xsg.sym)[1:10,]
+#peaks(xsg.obw)[1:10,]
+dim(xsg.gaus@peaks)
+dim(peaks(xsg.gaus)) ###Another way to do what was done in the previous line
+```
+
+
+‘diffreport’ computes Welch's two-sample t-statistic for each analyte and ranks them by p-value. In brief, it performs univariate analysis on our peaks.
+Q: When using 'diffreport', it is possible to include three sample classes (or even many more) by defining the class1/class2 arguments as c("sample2","sample3"). Does that, however, have any impact on the final result? In brief, is there a difference between `class1=c("Mouse1", "Mouse2"), class2="Mouse5"` and `(class1="Mouse1", class2=c( "Mouse2","Mouse5"))`
+```{r Extracting ion chromatograms for significant ions and reporting the most statistically significant differences in analyte intensities / A report showing the most significant differences between two sets of samples, message=FALSE}
+#rep.gaus <- diffreport(xsg.gaus, "Fresh", "Refrozen", "report", 10, metlin=0.15)
+rep.gaus <- diffreport(object=xsg.gaus, class1=c("Mouse1", "Mouse2"), class2="Mouse5", filebase="report", 50, metlin=0.15)
+#rep.sym <- diffreport(xsg.sym, "Fresh", c("Frozen 1w", "Frozen 24h"), "Symmetric", 10, metlin=0.15)
+#rep.obw <- diffreport(xsg.obw, "Fresh", c("Frozen 1w", "Frozen 24h"), "Obiwarp", 10, metlin=0.15)
+
+rep.gaus[1:10,]
+#rep.sym[1:10,]
+#rep.obw[1:10,]
+```
+
+```{r Constructing peak intensity matrix for multivariate analysis using MetaboAnalyst.ca}
+#– Features (peaks) are in rows
+#– Samples are in  columns
+#– Group labels must be added by using 'phenoData'
+#- If there are duplicated mzRT values in the rows of the generated peak intensity matrix, MetaboAnalyst will result in an error. To fix this error, simply distinguish repeated values by adding 'A', 'B', 'C', etc. to them. For example, if you have the mzRT feature 54.04/1499.3 twice in the resulting table, simply change the second one to 54.04/1499.3A
+dat <- groupval(xsg.gaus, "medret", "into")
+dat <- rbind(group = as.character(phenoData(xsg.gaus)$class), dat)
+write.csv(dat, file='PeakIntensityMatrix_Fresh_and_FreshRerun.csv')
+rm(dat)
+
+#dat <- groupval(xsg.sym, "medret", "into")
+#dat <- rbind(group = as.character(phenoData(xsg.sym)$class), dat)
+#write.csv(dat, file='Symmetric_PeakIntensityMatrix.csv')
+#rm(dat)
+
+#dat <- groupval(xsg.obw, "medret", "into")
+#dat <- rbind(group = as.character(phenoData(xsg.obw)$class), dat)
+#write.csv(dat, file='Obiwarp_PeakIntensityMatrix.csv')
+#rm(dat)
+```
+
+```{r Extracted ion chromatogram (EIC) / Assessing the quality of detected peaks}
+#gt.gaus <- groups(xsg.gaus)
+#gt.gaus[1:3,]
+
+#gt.sym <- groups(xsg.sym)
+#gt.sym[1:3,]
+
+#gt.obw <- groups(xsg.obw)
+#gt.obw[1:3,]
+
+#grp_idx_gaus <- which(gt.gaus[,"rtmed"] > 0 & gt.gaus[,"rtmed"] < 500 & gt.gaus[,"npeaks"] > 50)[1]
+#eiccor.gaus <- getEIC(xsg.gaus, groupidx=grp_idx_gaus)
+#plot(eiccor.gaus, col=as.numeric(phenoData(xsg.gaus)$class))
+```
+
+Processing with peakML
+```{r PeakML}
+PeakML.xcms.write(xsg.gaus, filename = "xset.peakml")
+
+```
+
+```{r PeakML Viewer}
+PeakML.Viewer()
+###Load xset.peakml generated in the previous step
+```
+
+Another way to analyze the data is using the MSnbase package
+```{r OnDiskMSnExp / MSnbase}
+path.pos <- "C:/r/Freezing_Experiment/pos/Frozen"
+pos.mzxml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzXML")
+
+## phenodata
+s_groups <- rep("Mouse1", length(pos.mzxml))
+s_groups[grep(pos.mzxml, pattern = "Mouse2")] <- "Mouse2"
+s_groups[grep(pos.mzxml, pattern = "Mouse5")] <- "Mouse5"
+
+## Define a data.frame that can be used as phenodata
+pheno <- data.frame(sample_name = sub(basename(pos.mzxml), pattern = ".mzXML", replacement = "", fixed = TRUE),
+                    sample_group = s_groups, stringsAsFactors = FALSE)
+
+MSn.set.exp <- readMSData2(pos.mzxml, pdata = new("NAnnotatedDataFrame", pheno))
+
+rtime(MSn.set.exp[[1]]) ### retention time of the first spectrum
+rtime(MSn.set.exp[[100]]) ### retention time of the 100th spectrum
+mz(MSn.set.exp[[1]]) ### mz values of the first spectrum
+head(mz(MSn.set.exp[[1]]))
+head(intensity(MSn.set.exp[[1]]))
+intensity(MSn.set.exp[[1]]) ### intensity values of the first spectrum
+head(tic(MSn.set.exp)) ### the total ion current, as reported in the original raw data file
+
+head(fromFile(MSn.set.exp)) ### fromFile method returns the index of the file that the spectrum originates from.
+fromFile(MSn.set.exp[[15000]]) ### index of the file containing the 15000th spectrum
+
+MSnbase::plot(MSn.set.exp[[5000]]) ### plotting the 5000th spectrum
+```
+
+```{r TIC plot}
+## Extract the TIC (Total Ion Current) and retention times, and split them by file.
+tics <- split(tic(MSn.set.exp), f = fromFile(MSn.set.exp))
+rts <- split(rtime(MSn.set.exp), f = fromFile(MSn.set.exp))
+
+## Define the color for each sample
+sample_colors <- brewer.pal(3, "Set1")[1:3]
+names(sample_colors) <- unique(s_groups)
+cols <- paste0(sample_colors[pData(MSn.set.exp)$sample_group], 80)
+
+exp.polarity <- as.character()
+if(gsub("^.*/","",dirname(path.pos[1])) == "pos") {exp.polarity <- "ESI+"}
+if(gsub("^.*/","",dirname(path.pos[1])) == "neg") {exp.polarity <- "ESI-"}
+pdf(paste0("TIC_Plot_", basename(path.pos[[1]]), "_", exp.polarity, ".pdf"))
+plot(3, 3, pch = NA, xlim = range(rts), ylim = range(tics), main = paste0("Total Ion Current (", basename(path.pos[[1]]), " ", exp.polarity, " samples)"),
+     xlab = "RT (retention time)", ylab = "intensity")
+tmp <- mapply(rts, tics, cols, FUN = function(x, y, col) {
+    points(x = x, y = y, col = col, type = "l")
+})
+legend("topleft", col = sample_colors, legend = names(sample_colors), lty = 1)
+dev.off()
+```
+
+```{r BPC plot}
+chrs <- extractChromatograms(MSn.set.exp, aggregationFun = "max")
+
+pdf(paste0("BPC_Plot_", basename(path.pos[[1]]), "_", exp.polarity, ".pdf"))
+plotChromatogram(
+    chrs,
+    col = paste0(sample_colors[pData(MSn.set.exp)$sample_group], 80), main=paste0("Base Peak Chromatogram (", basename(path.pos[[1]]), " ", exp.polarity, " samples)"))
+legend("topleft", col = sample_colors, legend = names(sample_colors), lty = 1)
+dev.off()
+```
+
+```{r Inspect the data}
+subs <- filterFile(filterRt(MSn.set.exp, rt = c(850,900)), file = 1) ### choose file and rt range
+
+## Extract the Spectrum
+spctr <- spectra(subs)[[1]]
+plot(mz(spctr), intensity(spctr), type = "h", xlab = "mz", ylab = "intensity", main=c("rt=", spctr@rt))
+```
+
+peaks intensities are in columns
+"into" (integrated peak signal)
+"maxo" (maximum signal at the peak’s apex)
+```{r Peak detection}
+cwp <- CentWavePredIsoParam(ppm=30)
+msn.chpeaks <- findChromPeaks(MSn.set.exp, param = cwp)
+msn.chpeaks
+head(chromPeaks(msn.chpeaks))
+detected.peaks <- chromPeaks(msn.chpeaks)
+table(detected.peaks[,"sample"]) ###Number of peaks per sample
+table(detected.peaks[,"sample"])/sum(detected.peaks[,"sample"])
+```
+
+```{r Highlighting detected peaks}
+chromPeaks(msn.chpeaks, mz = 316.1165)
+chrs <- extractChromatograms(msn.chpeaks, mz = 316.1165, rt = 2.992)
+
+#plotChromatogram(chrs,
+#         col = paste0(sample_colors[pData(msn.chpeaks)$sample_group], 80))
+#highlightChromPeaks(
+#    msn.chpeaks, rt = 2.992, mz = 316.1165,
+#    border = paste0(sample_colors[pData(msn.chpeaks)$sample_group], 40))
+```
+
+```{r Adjust retention time}
+msn.rt <- adjustRtime(msn.chpeaks, param = ObiwarpParam())
+hasAdjustedRtime(msn.rt)
+head(rtime(msn.rt)) ###Adjusted retention times
+head(rtime(msn.rt, adjusted = FALSE)) ###Raw retention times
+
+####grouping of chromatographic peaks within and between samples. 
+msn.rt.g <- groupChromPeaks(msn.rt, param = PeakDensityParam())
+plotAdjustedRtime(msn.rt.g)
+
+chrs <- extractChromatograms(msn.rt.g, aggregationFun = "max")
+rt_raw <- rtime(msn.rt.g, adjusted = FALSE, bySample = TRUE)
+ints <- lapply(chrs, intensity)
+par(mfrow = c(3, 1), mar = c(0.5, 4, 1, 0.5))
+plot(3, 3, pch = NA, xlab = "", ylab = "base peak intensity", xaxt = "n",
+     main = "before adjustment", xlim = range(rt_raw), ylim = range(ints))
+cols <- paste0(sample_colors[pData(msn.rt.g)$sample_group], 80)
+tmp <- mapply(rt_raw, ints, cols, FUN = function(x, y, col) {
+    points(x, y, col = col, type = "l")
+})
+plotChromatogram(chrs, main = "after adjustment", col = cols, xaxt = "n")
+par(mar = c(4, 4, 0.5, 0.5))
+plotAdjustedRtime(msn.rt.g, col = cols)
+```
+
+```{r Filling in missing peaks and Producing Peakimage (General visualizations of peak detection results)}
+head(featureValues(msn.rt.g, value = "into"))
+msn.rt.g <- fillChromPeaks(msn.rt.g)
+head(featureValues(msn.rt.g, value = "into"))
+featureDefinitions(msn.rt.g)
+
+pdf(paste0(basename(path.pos[[1]]), "_", exp.polarity, "_Peakimage.pdf"))
+plotChromPeakImage(msn.rt.g) ####This function plots the number of detected peaks for each sample along the retention time axis as an image plot, i.e. with the number of peaks detected in each bin along the retention time represented with the color of the respective cell.
+for(i in 1:length(fileNames(msn.rt.g))){
+plotChromPeaks(msn.rt.g, file=i)
+}
+dev.off()
+
+#mzr <- c(89.96725, 90.05811)
+#chrs <- extractChromatograms(msn.chpeaks, mz = mzr, rt = c(500, 600))
+#cols <- brewer.pal(3, "Set1")[c(1, 1, 2, 2)]
+#plotChromatogram(chrs, col = paste0(cols, 80))
+
+#chrs_adj <- extractChromatograms(msn.rt.g, mz = mzr, rt = c(500, 600))
+#par(mfrow = c(2, 1))
+#plot(chrs, col = paste0(cols, 80), main = "Before alignment")
+#plot(chrs_adj, col = paste0(cols, 80), main = "After alignment")
+```
+
+```{r apLCMS}
+#fresh.samples.apLCMS.analysis <- apLCMS::cdf.to.ftr(getwd(), file.pattern = ".mzXML")
+```
