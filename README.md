@@ -14,3 +14,8 @@
 4. For 'Repository URL', use the URL of the project as written on the BitBucket page of the project itself. This should naturally be: https://YOUR_USERNAME@bitbucket.org/ccpbioinfo/xcms.git
 
 More help can be found here: http://cinf401.artifice.cc/notes/rstudio-workflow.html
+
+###FASTER NO-HEADACHE APPROACH###
+
+1. RStudio > Tools > Global Options > Git/SVN > Create RSA Key...
+2. Copy the key to Bitbucket > Click on your profile photo > Bitbucket settings > SSH keys > Add key
