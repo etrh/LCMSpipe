@@ -2,7 +2,7 @@
 title: "Pipeline for Analysis of Metabolomics Data in R"
 author: "Ashkan Zareie"
 date: "August-September 2017"
-output: html_document
+output: pdf_document
 ---
 
 Currently the pipeline encompasses the following steps:  
@@ -27,12 +27,17 @@ if(!require(devtools)){install.packages("devtools")}
 library(devtools)
 if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
 library(xcms)
-pacman::p_load("IPO")
-pacman::p_load("MASS", "rgl", "mzR", "splines", "doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2")
+
+pacman::p_load("MASS", "rgl", "mzR", "splines", "doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO")
+
 if(!require(mzmatch.R)){
-download.file("http://puma.ibls.gla.ac.uk/mzmatch.R/mzmatch.R.tar.gz","mzmatch.R.tar.gz",cacheOK=FALSE)
-install.packages (pkgs="mzmatch.R.tar.gz",repos=NULL,type="source")
-file.remove ("mzmatch.R.tar.gz")}
+  download.file("http://puma.ibls.gla.ac.uk/mzmatch.R/mzmatch.R.tar.gz","mzmatch.R.tar.gz",cacheOK=FALSE)
+  install.packages(pkgs="mzmatch.R.tar.gz",repos=NULL,type="source")
+  file.remove ("mzmatch.R.tar.gz")}
+
+if(!require(apLCMS)){
+  install.packages("apLCMS_6.4.1.zip", repos=NULL, type="source")
+  }
 
 
 library(devtools)
@@ -43,14 +48,12 @@ library(MSnbase)
 library(plotly)
 library(IPO)
 library(plotly)
+library(apLCMS)
 library (rJava)
 library(mzmatch.R)
 .jinit ()
 mzmatch.init()
 
-
-###Experimental for now
-#library(apLCMS)
 #devtools::install_github("flajole/MApckg") ###R implementation of MetaboAnalyst.ca -- Doesn't work too well!
 #library(MApckg)
 ```
@@ -147,8 +150,8 @@ dim(peaks(xsg.gaus)) ###Another way to do what was done in the previous line
 ‘diffreport’ computes Welch's two-sample t-statistic for each analyte and ranks them by p-value. In brief, it performs univariate analysis on our peaks.  
 Q: When using 'diffreport', it is possible to include three sample classes (or even many more) by defining the class1/class2 arguments as c("sample2","sample3"). Does that, however, have any impact on the final result? In brief, is there a difference between `class1=c("Mouse1", "Mouse2"), class2="Mouse5"` and `(class1="Mouse1", class2=c( "Mouse2","Mouse5"))`  
 ```{r Extracting ion chromatograms for significant ions and reporting the most statistically significant differences in analyte intensities / A report showing the most significant differences between two sets of samples, message=FALSE}
-#rep.gaus <- diffreport(xsg.gaus, "Fresh", "Refrozen", "report", 10, metlin=0.15)
-rep.gaus <- diffreport(object=xsg.gaus, class1=c("Mouse1", "Mouse2"), class2="Mouse5", filebase="report", 50, metlin=0.15)
+rep.gaus <- diffreport(object=xsg.gaus, class1=c("Mouse1", "Mouse2"), class2="Mouse5", filebase="report", 50, metlin=0.15) ####quality of peaks can be inspected by checking the figures in report_eic folder
+
 #rep.sym <- diffreport(xsg.sym, "Fresh", c("Frozen 1w", "Frozen 24h"), "Symmetric", 10, metlin=0.15)
 #rep.obw <- diffreport(xsg.obw, "Fresh", c("Frozen 1w", "Frozen 24h"), "Obiwarp", 10, metlin=0.15)
 
@@ -204,7 +207,9 @@ PeakML.Viewer()
 ###Load xset.peakml generated in the previous step
 ```
 
-Another way to analyze the data is using the MSnbase package
+--- Secondary pipeline / secondary approach to analysis ---  
+This is currently only used to generate BPC and TIC plots  
+MSnbase is used to load the data, but at the core of the pipeline xcms is used to do everything else.  
 ```{r OnDiskMSnExp / MSnbase}
 path.pos <- "C:/r/Freezing_Experiment/pos/Frozen"
 pos.mzxml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzXML")
@@ -349,6 +354,7 @@ dev.off()
 #plot(chrs_adj, col = paste0(cols, 80), main = "After alignment")
 ```
 
-```{r apLCMS}
-#fresh.samples.apLCMS.analysis <- apLCMS::cdf.to.ftr(getwd(), file.pattern = ".mzXML")
+```{r apLCMS pipeline}
+#####This section is currently under construction (apLCMS might not be as reliable as xcms)
+#apLCMS.set <- apLCMS::cdf.to.ftr(path.pos, file.pattern = ".mzXML")
 ```
