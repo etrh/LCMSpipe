@@ -21,6 +21,9 @@ See these papers for some discussion on file formats:
 ####gfortran
 ####libblas-dev
 ####liblapack-dev
+####pcre
+####lzma
+####bz2
 ####jre/jvm
 
 
