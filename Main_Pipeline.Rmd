@@ -2,7 +2,7 @@
 title: "Pipeline for Analysis of Metabolomics Data in R"
 author: "Ashkan Zareie"
 date: "August-September 2017"
-output: pdf_document
+output: html_document
 ---
 
 Currently the pipeline encompasses the following steps:  
@@ -21,6 +21,7 @@ See these papers for some discussion on file formats:
 ####Make sure you have the latest version of R and Rstudio
 if(!require(pacman)){install.packages("pacman")}
 source("http://bioconductor.org/biocLite.R")
+pacman::p_load("mzR")
 if(!require(MSnbase)){biocLite("lgatto/MSnbase")}
 library(MSnbase)
 if(!require(devtools)){install.packages("devtools")}
@@ -28,7 +29,7 @@ library(devtools)
 if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
 library(xcms)
 
-pacman::p_load("MASS", "rgl", "mzR", "splines", "doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO")
+pacman::p_load("MASS", "rgl", "splines", "doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO")
 
 if(!require(mzmatch.R)){
   download.file("http://puma.ibls.gla.ac.uk/mzmatch.R/mzmatch.R.tar.gz","mzmatch.R.tar.gz",cacheOK=FALSE)
@@ -167,7 +168,7 @@ rep.gaus[1:10,]
 #- If there are duplicated mzRT values in the rows of the generated peak intensity matrix, MetaboAnalyst will result in an error. To fix this error, simply distinguish repeated values by adding 'A', 'B', 'C', etc. to them. For example, if you have the mzRT feature 54.04/1499.3 twice in the resulting table, simply change the second one to 54.04/1499.3A
 dat <- groupval(xsg.gaus, "medret", "into")
 dat <- rbind(group = as.character(phenoData(xsg.gaus)$class), dat)
-write.csv(dat, file='PeakIntensityMatrix_Fresh_and_FreshRerun.csv')
+write.csv(dat, file='PeakIntensityMatrix_for_MetaboAnalyst.csv')
 rm(dat)
 
 #dat <- groupval(xsg.sym, "medret", "into")
