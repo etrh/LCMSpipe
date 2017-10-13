@@ -2,7 +2,7 @@
 
 ## HOW TO CONNECT RSTUDIO TO BITBUCKET FOR THE FIRST TIME ##
 
-1. Install the latest version of Git for Windows: https://git-for-windows.github.io/
+1. Install the latest version of Git for Windows: https://git-for-windows.github.io/  
    Run "Git Bash" and type in the following:
 
 	$ git config --global user.name 'user.name'  
