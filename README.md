@@ -2,7 +2,7 @@
 
 ## HOW TO CONNECT RSTUDIO TO BITBUCKET FOR THE FIRST TIME ##
 
-###FASTER NO-HEADACHE APPROACH###
+### FASTER NO-HEADACHE APPROACH ###
 
 1. Run "Git Bash" and type in the following:
 
@@ -12,7 +12,8 @@
 2. Go to RStudio > Tools > Global Options > Git/SVN > Create RSA Key...
 3. Copy your public key from RStudio to Bitbucket > Click on your profile photo > Bitbucket settings > SSH keys > Add key
 
-###HEADACHE GUARANTEED IN THE LONG-RUN###
+### HEADACHE GUARANTEED IN THE LONG-RU N###
+
 1. Install the latest version of Git for Windows: https://git-for-windows.github.io/
 
 2. Run "Git Bash" and type the following:
