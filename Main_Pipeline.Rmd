@@ -21,6 +21,7 @@ See these papers for some discussion on file formats:
 ####gfortran
 ####libblas-dev
 ####liblapack-dev
+####jre/jvm
 
 
 ```{r Setup, include=FALSE}
