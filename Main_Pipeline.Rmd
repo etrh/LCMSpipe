@@ -370,3 +370,21 @@ dev.off()
 #####This section is currently under construction (apLCMS might not be as reliable as xcms)
 #apLCMS.set <- apLCMS::cdf.to.ftr(path.pos, file.pattern = ".mzXML")
 ```
+
+```{r IPO / XCMS Parameter Optimization}
+peakpickingParameters <- IPO::getDefaultXcmsSetStartingParams('centWave')
+peakpickingParameters$step <- c(0.2, 0.3)
+peakpickingParameters$fwhm <- c(2, 60)
+peakpickingParameters$steps <- 10
+peakpickingParameters$sigma <- 0
+peakpickingParameters$max <- 0
+peakpickingParameters$index <- FALSE
+data <- list.files("/storage/brno3-cerit/nfs4/home/amizeranschi/home/azareie/Documents/Rprojects/Freezing_Experiment/pos/Frozen/", recursive = T, full.names = T)
+optimized.xcmsSet <- system.time({
+    resultPeakpicking <- optimizeXcmsSet(files = data, 
+                       params = peakpickingParameters,
+                       nSlaves = (parallel::detectCores()) - 1,
+                       subdir = NULL)
+})
+
+```
