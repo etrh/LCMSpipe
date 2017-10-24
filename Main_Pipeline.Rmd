@@ -92,6 +92,7 @@ pos.mzml
 ```{r xcmsSet for positive data / peak identification, include=FALSE}
 xset.pos <- xcmsSet(pos.mzml, method="centWaveWithPredictedIsotopeROIs", ppm=30)
 ###ppm is set to 30, hence peak picking can take a very long time to complete
+###Use BPPARAM = MulticoreParam(detectCores()) for enabling parallel computing
 ```
 
 
