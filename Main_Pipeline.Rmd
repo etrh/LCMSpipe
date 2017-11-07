@@ -179,7 +179,7 @@ rep.gaus[1:10,]
 #– Group labels must be added by using 'phenoData'
 #- If there are duplicated mzRT values in the rows of the generated peak intensity matrix, MetaboAnalyst will result in an error. To fix this error, simply distinguish repeated values by adding 'A', 'B', 'C', etc. to them. For example, if you have the mzRT feature 54.04/1499.3 twice in the resulting table, simply change the second one to 54.04/1499.3A
 dat <- groupval(xsg.gaus, "medret", "into")
-rownames(peakmatrixnew) <- groupnames(xsg.gaus, mzdec=5, rtdec=5)
+rownames(dat) <- groupnames(xsg.gaus, mzdec=5, rtdec=5)
 dat <- rbind(group = as.character(phenoData(xsg.gaus)$class), dat)
 write.csv(dat, file='PeakIntensityMatrix_for_MetaboAnalyst.csv')
 rm(dat)
