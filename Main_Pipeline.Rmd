@@ -40,16 +40,16 @@ library(devtools)
 if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
 library(xcms)
 
-pacman::p_load("MASS", "rgl", "splines", "parallel","doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO")
+pacman::p_load("MASS", "rgl", "splines", "parallel","doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO", "CAMERA")
 
-if(!require(mzmatch.R)){
-  download.file("http://puma.ibls.gla.ac.uk/mzmatch.R/mzmatch.R.tar.gz","mzmatch.R.tar.gz",cacheOK=FALSE)
-  install.packages(pkgs="mzmatch.R.tar.gz",repos=NULL,type="source")
-  file.remove ("mzmatch.R.tar.gz")}
+#if(!require(mzmatch.R)){
+#  download.file("http://puma.ibls.gla.ac.uk/mzmatch.R/mzmatch.R.tar.gz","mzmatch.R.tar.gz",cacheOK=FALSE)
+#  install.packages(pkgs="mzmatch.R.tar.gz",repos=NULL,type="source")
+#  file.remove ("mzmatch.R.tar.gz")}
 
-if(!require(apLCMS)){
-  install.packages("apLCMS_6.4.1.zip", repos=NULL, type="source")
-  }
+#if(!require(apLCMS)){
+#  install.packages("apLCMS_6.4.1.zip", repos=NULL, type="source")
+#  }
 
 
 library(devtools)
@@ -208,6 +208,18 @@ rm(dat)
 #grp_idx_gaus <- which(gt.gaus[,"rtmed"] > 0 & gt.gaus[,"rtmed"] < 500 & gt.gaus[,"npeaks"] > 50)[1]
 #eiccor.gaus <- getEIC(xsg.gaus, groupidx=grp_idx_gaus)
 #plot(eiccor.gaus, col=as.numeric(phenoData(xsg.gaus)$class))
+```
+
+```{r Isotope and Adduct Detection -- under development, be cautious}
+an <- xsAnnotate(xsg.gaus, polarity="positive") # constructor; extracts peak table
+an <- groupFWHM(an, perfwhm = 1) # group peaks by retention time
+an <- findIsotopesWithValidation(object = an, ppm = 30, mzabs = 0.01, intval="intb", maxcharge = 3)
+peakTable <- getPeaklist(an) # extract peak list
+View(peakTable)
+an <- groupCorr(an)
+anF <- findIsotopes(an)
+anF <- findAdducts(anF, polarity="positive")
+write.csv(getPeaklist(anF),file="isotope_adduct_prediction.csv")
 ```
 
 Processing with peakML  
