@@ -42,6 +42,10 @@ library(xcms)
 
 pacman::p_load("MASS", "rgl", "splines", "parallel","doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO", "CAMERA")
 
+if(!require(MetaboAnalystR)){devtools::install_github("xia-lab/MetaboAnalystR", build_vignettes=TRUE)}
+library(MetaboAnalystR)
+#vignette(package="MetaboAnalystR")
+
 #if(!require(mzmatch.R)){
 #  download.file("http://puma.ibls.gla.ac.uk/mzmatch.R/mzmatch.R.tar.gz","mzmatch.R.tar.gz",cacheOK=FALSE)
 #  install.packages(pkgs="mzmatch.R.tar.gz",repos=NULL,type="source")
@@ -60,14 +64,12 @@ library(MSnbase)
 library(plotly)
 library(IPO)
 library(plotly)
-library(apLCMS)
+#library(apLCMS)
 library (rJava)
-library(mzmatch.R)
-.jinit ()
-mzmatch.init()
+#library(mzmatch.R)
+#.jinit ()
+#mzmatch.init()
 
-#devtools::install_github("flajole/MApckg") ###R implementation of MetaboAnalyst.ca -- Doesn't work too well!
-#library(MApckg)
 ```
 
 ```{r Load positive data, include=FALSE}
