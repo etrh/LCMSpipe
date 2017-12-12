@@ -73,7 +73,7 @@ library (rJava)
 ```
 
 ```{r Load positive data, include=FALSE}
-path.pos <- "C:/r/Freezing_Experiment/pos/Frozen" ####path to converted mzXML files
+path.pos <- "/storage/brno3-cerit/nfs4/home/amizeranschi/home/azareie/Documents/LCMS-Data/81Z/" ####path to converted mzXML files
 ###Get the files from \\primus.img.cas.cz\data\18_lab\Bioinformatics\Freezing_Experiment
 ###"pos" stands for ESI+ (Electrospray ionization - positive polarity)
 ###"neg" stands for ESI- (Electrospray ionization - negative polarity)
@@ -205,7 +205,7 @@ boxplot(groupval(xsg.gaus, value="into")+1,
         col=as.numeric(sampclass(xsg.gaus))+1, 
         log="y", las=2)
 
-plotQC
+plotQC(xsg.gaus)
 ```
 
 ```{r Extracted ion chromatogram (EIC) / Assessing the quality of detected peaks}
