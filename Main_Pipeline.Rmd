@@ -139,8 +139,11 @@ dim(xset.pos@peaks)
 - Grouping has its own methods too (density, mzClust, nearest)  
 Q: How do we tune grouping parameters? How do we find the best ones for our data?  
 ```{r Grouping peaks representing the same analyte across samples / matching peaks across samples}
-xsg.pos <- group(xset.pos)
-xsg.pos.mzClust <- group.mzClust(xset.pos)
+?group.density
+?group.mzClust
+?group.nearest
+xsg.pos <- group(xset.pos, sleep = 1)
+xsg.pos.mzClust <- group.mzClust(xset.pos, mzppm = 5)
 ```
 
 
@@ -166,6 +169,24 @@ xsg.gaus <- group(xsg.pos.retcor.gaussian)
 xsg.gaus <- fillPeaks(xsg.gaus)
 #xsg.sym <- fillPeaks(xsg.sym)
 #xsg.obw <- fillPeaks(xsg.obw)
+```
+
+
+```{r QC}
+
+###intensity
+boxplot(groupval(xsg.gaus, value="into")+1, 
+        col=as.numeric(sampclass(xsg.gaus))+1, 
+        log="y", las=2)
+
+plotQC(xsg.gaus)
+
+sdThresh <- 4.0 ## Filter low-standard deviation rows for plot
+data <- log(groupval(xsg.gaus, value="into")+1)
+
+pca.result <- pca(data, nPcs=3)
+plotPcs(pca.result, type="loadings", 
+        col=as.numeric(sampclass(xsg.gaus))+1)
 ```
 
 
@@ -218,16 +239,6 @@ write.csv(dat, file='PeakIntensityMatrix_for_MetaboAnalyst.csv')
 #dat <- rbind(group = as.character(phenoData(xsg.obw)$class), dat)
 #write.csv(dat, file='Obiwarp_PeakIntensityMatrix.csv')
 #rm(dat)
-```
-
-```{r QC}
-
-###intensity
-boxplot(groupval(xsg.gaus, value="into")+1, 
-        col=as.numeric(sampclass(xsg.gaus))+1, 
-        log="y", las=2)
-
-plotQC(xsg.gaus)
 ```
 
 ```{r Extracted ion chromatogram (EIC) / Assessing the quality of detected peaks}
