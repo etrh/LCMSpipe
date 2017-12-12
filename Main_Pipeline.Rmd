@@ -198,6 +198,16 @@ write.csv(dat, file='PeakIntensityMatrix_for_MetaboAnalyst.csv')
 #rm(dat)
 ```
 
+```{r QC}
+
+###intensity
+boxplot(groupval(xsg.gaus, value="into")+1, 
+        col=as.numeric(sampclass(xsg.gaus))+1, 
+        log="y", las=2)
+
+plotQC
+```
+
 ```{r Extracted ion chromatogram (EIC) / Assessing the quality of detected peaks}
 #gt.gaus <- groups(xsg.gaus)
 #gt.gaus[1:3,]
