@@ -13,6 +13,8 @@ Currently the pipeline encompasses the following steps:
 Soon to be added:  
 - Implement MetaboAnalyst in R  
 - Isotope/adduct annotation using CAMERA  
+- https://www.bioconductor.org/packages/3.7/data/experiment/vignettes/mtbls2/inst/doc/MTBLS2.html  
+- https://bioconductor.org/packages/release/bioc/vignettes/xcms/inst/doc/xcms.html  
   
   
 See these papers for some discussion on file formats:  
