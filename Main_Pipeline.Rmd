@@ -82,7 +82,7 @@ update.packages()
 source("https://bioconductor.org/biocLite.R")
 biocLite()
 source("https://bioconductor.org/biocLite.R")
-biocLite("BiocUpgrade")
+#biocLite("BiocUpgrade")
 biocValid()
 
 ```
@@ -108,7 +108,7 @@ pos.mzml
 
 ```{r xcmsSet for positive data / peak identification, include=FALSE}
 xset.pos <- xcmsSet(pos.mzml, method = "centWaveWithPredictedIsotopeROIs", ppm = 30)
-#xset.pos <- xcmsSet(pos.mzml, method="massifquant", ppm=20, snthresh = 40, prefilter = c(3, 50000), noise = 100000, withWave = TRUE, peakwidth = c(16,60))
+#xset.pos <- xcmsSet(pos.mzml, method = "massifquant", ppm = 20, snthresh = 40, prefilter = c(3, 50000), noise = 100000, withWave = TRUE, peakwidth = c(16,60))
 ###ppm is set to 30, hence peak picking can take a very long time to complete
 ###Use BPPARAM = MulticoreParam(detectCores()) for enabling parallel computing
 ```
@@ -144,7 +144,7 @@ Q: How do we tune grouping parameters? How do we find the best ones for our data
 ?group.density
 ?group.mzClust
 ?group.nearest
-xsg.pos <- group(xset.pos, sleep = 1)
+xsg.pos <- group(xset.pos, sleep = 0.2)
 xsg.pos.mzClust <- group.mzClust(xset.pos, mzppm = 5)
 ```
 
@@ -471,4 +471,26 @@ optimized.xcmsSet <- system.time({
                        subdir = NULL)
 })
 
+```
+
+```{r XCMS3 Pipeline}
+files.path <- "/storage/brno3-cerit/nfs4/home/amizeranschi/home/azareie/Documents/LCMS-Data/Teas/"
+mzml.files <- list.files(files.path, recursive = T, full.names = T, pattern=".mzML")
+mzml.files
+
+pd <- data.frame(sample_name = sub(basename(mzml.files), pattern = ".mzML",
+                   replacement = "", fixed = TRUE),
+         sample_group = rep("Teas", length(mzml.files)),
+         stringsAsFactors = FALSE) 
+
+raw_data <- readMSData(files = mzml.files, pdata = new("NAnnotatedDataFrame", pd), mode = "onDisk")
+
+head(rtime(raw_data)) 
+
+mzs <- mz(raw_data)
+
+## Split the list by file
+mzs_by_file <- split(mzs, f = fromFile(raw_data))
+
+length(mzs_by_file) 
 ```
