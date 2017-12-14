@@ -51,7 +51,7 @@ library(devtools)
 if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
 library(xcms)
 
-pacman::p_load("MASS", "rgl", "splines", "parallel","doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO", "CAMERA")
+pacman::p_load("MASS", "rgl", "splines", "parallel","doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO", "CAMERA", "pcaMethods","pca3d", "Rtsne")
 
 if(!require(MetaboAnalystR)){devtools::install_github("xia-lab/MetaboAnalystR", build_vignettes=TRUE)}
 library(MetaboAnalystR)
@@ -147,7 +147,7 @@ Q: How do we tune grouping parameters? How do we find the best ones for our data
 ?group.density
 ?group.mzClust
 ?group.nearest
-xsg.pos <- group(xset.pos, sleep = 0.2)
+xsg.pos <- group(xset.pos, sleep = 0.05)
 xsg.pos.mzClust <- group.mzClust(xset.pos, mzppm = 5)
 ```
 
@@ -192,6 +192,11 @@ data <- log(groupval(xsg.gaus, value="into")+1)
 pca.result <- pca(data, nPcs=3)
 plotPcs(pca.result, type="loadings", 
         col=as.numeric(sampclass(xsg.gaus))+1)
+
+#pca <- prcomp(t(data), scale.=TRUE)
+#gr <- factor(as.numeric(sampclass(xsg.gaus))+1)
+#summary(gr)
+#pca3d(pca, group=gr)
 ```
 
 
@@ -280,7 +285,7 @@ labels.plot <- t[1,][-1]
 t <- t[-1,]
 rownames(t) <- t[,1]
 t <- t[,-1]
-for(i in 1:13){
+for(i in 1:dim(t)[2]){
 t[,i] <- as.numeric(as.character(t[,i]))
 }
 tICA <- fastICA::fastICA(t, n.comp = 2)
@@ -291,7 +296,7 @@ cols <- paste0(sample_colors[labels.plot], 80)
 tTSNE.samples <- Rtsne(t(t), perplexity = 4)
 par(mfrow=c(3,1))
 plot(tICA$S, col=cols, cex=2, pch=16, main="Independent Component Analysis (ICA)\nSamples")
-plot(tTSNE$Y, main = "T-distributed Stochastic Neighbor Embedding (tSNE)\nFeatures")
+plot(tTSNE.samples$Y, main = "T-distributed Stochastic Neighbor Embedding (tSNE)\nFeatures")
 plot(tTSNE.samples$Y, main="T-distributed Stochastic Neighbor Embedding (tSNE)\nSamples", col=cols, pch=16, cex=3)
 ```
 
