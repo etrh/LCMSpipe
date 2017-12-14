@@ -51,7 +51,7 @@ library(devtools)
 if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
 library(xcms)
 
-pacman::p_load("MASS", "rgl", "splines", "parallel","doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO", "CAMERA", "pcaMethods","pca3d", "Rtsne")
+pacman::p_load("MASS", "rgl", "splines", "parallel","doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO", "CAMERA", "pcaMethods","pca3d", "Rtsne", "pander")
 
 if(!require(MetaboAnalystR)){devtools::install_github("xia-lab/MetaboAnalystR", build_vignettes=TRUE)}
 library(MetaboAnalystR)
@@ -482,13 +482,13 @@ optimized.xcmsSet <- system.time({
 ```
 
 ```{r XCMS3 Pipeline}
-files.path <- "/storage/brno3-cerit/nfs4/home/amizeranschi/home/azareie/Documents/LCMS-Data/Teas/"
+files.path <- "/storage/brno3-cerit/nfs4/home/amizeranschi/home/azareie/Documents/LCMS-Data/Mzb1/"
 mzml.files <- list.files(files.path, recursive = T, full.names = T, pattern=".mzML")
 mzml.files
 
 pd <- data.frame(sample_name = sub(basename(mzml.files), pattern = ".mzML",
                    replacement = "", fixed = TRUE),
-         sample_group = rep("Teas", length(mzml.files)),
+         sample_group = c(rep("Mzb1", 7), rep("WT", 6)),
          stringsAsFactors = FALSE) 
 
 raw_data <- readMSData(files = mzml.files, pdata = new("NAnnotatedDataFrame", pd), mode = "onDisk")
@@ -501,4 +501,75 @@ mzs <- mz(raw_data)
 mzs_by_file <- split(mzs, f = fromFile(raw_data))
 
 length(mzs_by_file) 
+
+## Get the base peak chromatograms. This reads data from the files.
+bpis <- chromatogram(raw_data, aggregationFun = "max")
+tic <- chromatogram(raw_data, aggregationFun = "sum")
+## Define colors for the two groups
+group_colors <- brewer.pal(3, "Set1")[1:2]
+names(group_colors) <- c("Mzb1", "WT")
+
+## Plot all chromatograms.
+plot(bpis, col = group_colors[raw_data$sample_group], main = "Base Peak Chromatogram (BPC)")
+plot(tic, col = group_colors[raw_data$sample_group], main = "Total Ion Current (TIC)")
+
+bpi_1 <- bpis[1, 1]
+head(rtime(bpi_1))
+
+head(intensity(bpi_1)) 
+
+## Get the total ion current by file
+tc <- split(tic(raw_data), f = fromFile(raw_data))
+boxplot(tc, col = group_colors[raw_data$sample_group],
+    ylab = "intensity", main = "Total ion current") 
+
+## Visually inspect the EIC of internal controls, known peaks, etc.
+## Peak widths can be inspected in this way as well, and in turn help us to choose
+## better peak widths for centWave or other algorithms.
+## Use TopView to the same as well.
+
+#Note that Chromatogram objects extracted by the chromatogram method contain an NA value if in a certain scan (i.e. for a specific retention time) no signal was measured in the respective mz range. This is reflected by the lines not being drawn as continuous lines in the plot above.
+
+## Define the rt and m/z range of the peak area
+rtr <- c(92.60, 200)
+mzr <- c(118.07, 118.19)
+## extract the chromatogram
+chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
+plot(chr_raw, col = group_colors[chr_raw$sample_group])
+
+
+## For the ppm parameter we extract the full MS data (intensity, retention time and m/z values) corresponding to the above peak.
+## the ppm parameter is usually set to a much higher value than advertised by the vendor of the machine
+## Extract the MS data for the region.
+msd_raw <- extractMsData(raw_data, mz = mzr, rt = rtr)
+plotMsData(msd_raw[[1]]) 
+
+## Inspect the lower panel
+## If you see a straight line, this means there is no variation in the m/z values for that particular peak
+## Usually one would see the m/z values (lower panel) scatter around the real m/z value of the compound. It is suggested to inspect the ranges of m/z values for many compounds (either internal standards or compounds known to be present in the sample) and define the ppm parameter for centWave according to these.
+
+cwp <- CentWaveParam(peakwidth = c(15, 45), noise = 12000)
+xdata <- findChromPeaks(raw_data, param = cwp)
+head(chromPeaks(xdata)) 
+
+#The returned matrix provides the m/z and retention time range for each identified chromatographic peak as well as the integrated signal intensity (“into”) and the maximal peak intensitity (“maxo”). Column “sample” contains the index of the sample in the object/experiment in which the peak was identified.
+
+
+### per file (sample) statistics
+summary_fun <- function(z) {
+    c(peak_count = nrow(z), rt = quantile(z[, "rtmax"] - z[, "rtmin"]))
+}
+T <- lapply(split.data.frame(chromPeaks(xdata),
+                 f = chromPeaks(xdata)[, "sample"]),
+        FUN = summary_fun)
+T <- do.call(rbind, T)
+rownames(T) <- basename(fileNames(xdata))
+pander::pandoc.table(T,
+         caption = paste0("Summary statistics on identified chromatographic",
+                  " peaks. Shown are number of identified peaks per",
+                  " sample and widths/duration of chromatographic ",
+                  "peaks.")) 
+
+### plot the location of the identified chromatographic peaks in the m/z - retention time space for one file
+plotChromPeaks(xdata, file = 3) 
 ```
