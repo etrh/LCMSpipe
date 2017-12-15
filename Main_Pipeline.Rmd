@@ -42,6 +42,7 @@ On UNIX-based systems you will first need to ensure the following are installed:
 ####Make sure you have the latest version of R and Rstudio
 
 if(!require(pacman)){install.packages("pacman")}
+library(pacman)
 source("http://bioconductor.org/biocLite.R")
 pacman::p_load("mzR")
 if(!require(MSnbase)){biocLite("lgatto/MSnbase")}
@@ -51,7 +52,7 @@ library(devtools)
 if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
 library(xcms)
 
-pacman::p_load("MASS", "rgl", "splines", "parallel","doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO", "CAMERA", "pcaMethods","pca3d", "Rtsne", "pander")
+pacman::p_load("MASS", "rgl", "splines", "parallel","doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO", "CAMERA", "pcaMethods","pca3d", "Rtsne", "pander", "imager")
 
 if(!require(MetaboAnalystR)){devtools::install_github("xia-lab/MetaboAnalystR", build_vignettes=TRUE)}
 library(MetaboAnalystR)
@@ -81,7 +82,7 @@ library (rJava)
 #.jinit ()
 #mzmatch.init()
 
-update.packages()
+update.packages(repos = "https://cloud.r-project.org/")
 source("https://bioconductor.org/biocLite.R")
 biocLite()
 source("https://bioconductor.org/biocLite.R")
@@ -109,9 +110,9 @@ pos.mzml
 - Q: How do we find the best tuning parameters for our dataset? (e.g. 'fwhm' specifies full width at half maximum (default is 30s) based on the type of chromatography)  
 - Q: Is it a good idea to load all sample sets (Fresh, Frozen 24h, Frozen 1w) into one xcmsSet? To a high degree, this may not be a good idea, especially when samples are from different experiments  
 
-```{r xcmsSet for positive data / peak identification, include=FALSE}
-xset.pos <- xcmsSet(pos.mzml, method = "centWaveWithPredictedIsotopeROIs", ppm = 30)
-#xset.pos <- xcmsSet(pos.mzml, method = "massifquant", ppm = 20, snthresh = 40, prefilter = c(3, 50000), noise = 100000, withWave = TRUE, peakwidth = c(16,60))
+```{r xcmsSet for positive data / peak identification, cache = TRUE}
+#xset.pos <- xcmsSet(pos.mzml, method = "centWaveWithPredictedIsotopeROIs", ppm = 30)
+xset.pos <- xcmsSet(pos.mzml, method = "massifquant", ppm = 30, snthresh = 40, prefilter = c(3, 50000), noise = 12000, withWave = TRUE, peakwidth = c(15, 45))
 ###ppm is set to 30, hence peak picking can take a very long time to complete
 ###Use BPPARAM = MulticoreParam(detectCores()) for enabling parallel computing
 ```
@@ -123,8 +124,10 @@ xset.pos
 
 
 ```{r Peaks}
+paste0("Samples groups: ")
 levels(sampclass(xset.pos))
 colnames(xset.pos@peaks)
+head(xset.pos@peaks)
 dim(xset.pos@peaks)
 ```
 
@@ -147,7 +150,7 @@ Q: How do we tune grouping parameters? How do we find the best ones for our data
 ?group.density
 ?group.mzClust
 ?group.nearest
-xsg.pos <- group(xset.pos, sleep = 0.05)
+xsg.pos <- group(xset.pos, sleep = 0.02)
 xsg.pos.mzClust <- group.mzClust(xset.pos, mzppm = 5)
 ```
 
@@ -165,6 +168,8 @@ xsg.pos.mzClust.retcor <- retcor(xsg.pos.mzClust, family="gaussian", plottype="m
 When re-grouping the retention time-corrected xset, parameters can also be re-tuned once more. For example, we can choose a narrower 'bw'.  
 ```{r Re-grouping peaks representing the same analyte across samples. Grouping/retention time correction can and must be repeated several times}
 xsg.gaus <- group(xsg.pos.retcor.gaussian)
+xsg.gaus <- retcor(xsg.gaus, family="gaussian", plottype="mdevden")
+xsg.gaus <- group(xsg.gaus)
 #xsg.sym <- group(xsg.pos.retcor.symmetric, bw=10)
 #xsg.obw <- group(xsg.pos.retcor.obiwarp, bw=10)
 ```
@@ -189,7 +194,7 @@ plotQC(xsg.gaus)
 sdThresh <- 4.0 ## Filter low-standard deviation rows for plot
 data <- log(groupval(xsg.gaus, value="into")+1)
 
-pca.result <- pca(data, nPcs=3)
+pca.result <- pca(data, nPcs = 8)
 plotPcs(pca.result, type="loadings", 
         col=as.numeric(sampclass(xsg.gaus))+1)
 
@@ -201,8 +206,9 @@ plotPcs(pca.result, type="loadings",
 
 
 "into" and "maxo" are (or at least seem to be) peak intensities and areas, respectively.  
+Peak list:  
 ```{r Results of peak detection}
-peaks(xsg.gaus)[1:10,]
+peaks(xsg.gaus)[1:25,]
 #peaks(xsg.sym)[1:10,]
 #peaks(xsg.obw)[1:10,]
 dim(xsg.gaus@peaks)
@@ -216,7 +222,7 @@ Q: When using 'diffreport', it is possible to include three sample classes (or e
 rep.gaus <- diffreport(object = xsg.gaus, 
                        class1 = levels(sampclass(xsg.gaus))[1], 
                        class2 = levels(sampclass(xsg.gaus))[2], 
-                       filebase = "diffreport", eicmax = 50, 
+                       filebase = "diffreport", eicmax = 20, 
                        sortpval = TRUE,
                        metlin = 0.5, mzdec = 4)
 ####quality of peaks can be inspected by checking the figures in report_eic folder
@@ -224,10 +230,22 @@ rep.gaus <- diffreport(object = xsg.gaus,
 #rep.sym <- diffreport(xsg.sym, "Fresh", c("Frozen 1w", "Frozen 24h"), "Symmetric", 10, metlin=0.15)
 #rep.obw <- diffreport(xsg.obw, "Fresh", c("Frozen 1w", "Frozen 24h"), "Obiwarp", 10, metlin=0.15)
 
-rep.gaus[1:10,]
+rep.gaus[1:25,]
+tail(rep.gaus)
 #rep.sym[1:10,]
 #rep.obw[1:10,]
 ```
+
+```{r DifferentPeaks}
+eic <- list.files("diffreport_eic", full.names = T, recursive = T)
+im <- list()
+for(i in 1:length(eic)) {
+  im[[i]] <- load.image(eic[i])
+  plot(im[[i]])
+  }
+
+```
+
 
 ```{r Constructing peak intensity matrix for multivariate analysis using MetaboAnalyst.ca}
 #– Features (peaks) are in rows
@@ -238,6 +256,8 @@ dat <- groupval(xsg.gaus, "medret", "into")
 rownames(dat) <- groupnames(xsg.gaus, mzdec=5, rtdec=5)
 dat <- rbind(group = as.character(phenoData(xsg.gaus)$class), dat)
 write.csv(dat, file='PeakIntensityMatrix_for_MetaboAnalyst.csv')
+head(dat)
+tail(dat)
 #rm(dat)
 
 #dat <- groupval(xsg.sym, "medret", "into")
@@ -269,13 +289,15 @@ write.csv(dat, file='PeakIntensityMatrix_for_MetaboAnalyst.csv')
 ```{r Isotope and Adduct Detection --- UNDER DEVELOPMENT | Be cautious}
 an <- xsAnnotate(xsg.gaus, polarity="positive") # constructor; extracts peak table
 an <- groupFWHM(an, perfwhm = 1) # group peaks by retention time
-an <- findIsotopesWithValidation(object = an, ppm = 30, mzabs = 0.01, intval="intb", maxcharge = 3)
+#an <- findIsotopesWithValidation(object = an, ppm = 5, mzabs = 0.01, intval="intb", maxcharge = 3)
 peakTable <- getPeaklist(an) # extract peak list
-View(peakTable)
+head(peakTable)
+tail(peakTable)
 an <- groupCorr(an)
 anF <- findIsotopes(an)
 anF <- findAdducts(anF, polarity="positive")
 write.csv(getPeaklist(anF),file="isotope_adduct_prediction.csv")
+getPeaklist(anF)
 ```
 
 ```{r Independent Component Analysis (ICA) / T-distributed Stochastic Neighbor Embedding (tSNE) --- UNDER DEVELOPMENT | Be cautious}
@@ -283,26 +305,30 @@ t <- dat
 head(t)
 labels.plot <- t[1,][-1]
 t <- t[-1,]
-rownames(t) <- t[,1]
-t <- t[,-1]
-for(i in 1:dim(t)[2]){
-t[,i] <- as.numeric(as.character(t[,i]))
-}
+
+# for(i in 1:dim(t)[2]){
+# t[,i] <- as.numeric(as.character(t[,i]))
+# }
+
+write.csv(x = t, file = "t.csv")
+t <- (read.csv("t.csv", header = TRUE, stringsAsFactors = FALSE, row.names = 1, check.names = FALSE))
+
 tICA <- fastICA::fastICA(t, n.comp = 2)
-library(RColorBrewer)
+
 sample_colors <- brewer.pal(2, "Set1")[1:2]
 names(sample_colors) <- unique(labels.plot)
 cols <- paste0(sample_colors[labels.plot], 80)
+tTSNE.features <- Rtsne(t)
 tTSNE.samples <- Rtsne(t(t), perplexity = 4)
-par(mfrow=c(3,1))
+#par(mfrow=c(3,1))
 plot(tICA$S, col=cols, cex=2, pch=16, main="Independent Component Analysis (ICA)\nSamples")
-plot(tTSNE.samples$Y, main = "T-distributed Stochastic Neighbor Embedding (tSNE)\nFeatures")
+plot(tTSNE.features$Y, main = "T-distributed Stochastic Neighbor Embedding (tSNE)\nFeatures")
 plot(tTSNE.samples$Y, main="T-distributed Stochastic Neighbor Embedding (tSNE)\nSamples", col=cols, pch=16, cex=3)
 ```
 
 Processing with peakML  
 ```{r PeakML}
-PeakML.xcms.write(xsg.gaus, filename = "xset.peakml")
+#PeakML.xcms.write(xsg.gaus, filename = "xset.peakml")
 
 ```
 
@@ -315,8 +341,7 @@ PeakML.Viewer()
 This is currently only used to generate BPC and TIC plots  
 MSnbase is used to load the data, but at the core of the pipeline xcms is used to do everything else.  
 ```{r OnDiskMSnExp / MSnbase}
-path.pos <- "C:/r/Freezing_Experiment/pos/Frozen"
-pos.mzxml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzXML")
+pos.mzxml <- pos.mzml
 
 ## phenodata
 s_groups <- rep("Mouse1", length(pos.mzxml))
@@ -611,5 +636,26 @@ xdata <- adjustRtime(xdata, param = ObiwarpParam(binSize = 0.6))
 head(adjustedRtime(xdata))
 head(rtime(xdata))  ### defaults to adjustedRtime if it's present
 head(rtime(xdata, adjusted = FALSE)) ### returns original retention times
+
+
+### investigate the impact of alignment by plotting BPC of the adjusted data
+#To evaluate the impact of the alignment we plot the BPC on the adjusted data. In addition we plot the differences of the adjusted- to the raw retention times per sample using the  plotAdjustedRtime function.
+#Too large differences between adjusted and raw retention times could indicate poorly performing samples or alignment.
+## Get the base peak chromatograms.
+bpis_adj <- chromatogram(xdata, aggregationFun = "max")
+par(mfrow = c(2, 1), mar = c(4.5, 4.2, 1, 0.5))
+plot(bpis_adj, col = group_colors[bpis_adj$sample_group])
+## Plot also the difference of adjusted to raw retention time.
+plotAdjustedRtime(xdata, col = group_colors[xdata$sample_group]) 
+
+
+#use the peak groups alignment method that adjusts the retention time by aligning previously identified hook peaks (chromatographic peaks present in most/all samples). Ideally, these hook peaks should span most part of the retention time range. 
+hasAdjustedRtime(xdata)
+xdata <- dropAdjustedRtime(xdata)
+hasAdjustedRtime(xdata)
+
+
+#The definition of the sample groups (i.e. assignment of individual samples to the sample groups in the experiment) is mandatory for the PeakDensityParam. If there are no sample groups in the experiment sampleGroups should be set to a single value for each file (e.g.  rep(1, length(fileNames(xdata))).
+
 
 ```
