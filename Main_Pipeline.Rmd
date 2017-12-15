@@ -578,4 +578,26 @@ plotChromPeaks(xdata, file = 3)
 ### The frequency is color coded with higher frequency being represented by yellow-white.
 plotChromPeakImage(xdata) 
 
+
+## Highlight identified peaks
+rtr = c(1070,1100)
+mzr = c(149,150)
+chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
+plot(chr_raw, col = group_colors[chr_raw$sample_group], lwd = 2)
+highlightChromPeaks(xdata, border = group_colors[chr_raw$sample_group],
+                    lty = 3, rt = rtr, mz = mzr)
+
+## Extract identified peaks in a region
+pander(chromPeaks(xdata, mz = mzr, rt = rtr),
+       caption = paste("Identified chromatographic peaks in a selected ",
+               "m/z and retention time range.")) 
+
+
+### distribution of peak intensity per sample
+## Extract a list of per-sample peak intensities (in log2 scale)
+ints <- split(log2(chromPeaks(xdata)[, "into"]),
+          f = chromPeaks(xdata)[, "sample"])
+boxplot(ints, varwidth = TRUE, col = group_colors[xdata$sample_group],
+    ylab = expression(log[2]~intensity), main = "Peak intensities")
+grid(nx = NA, ny = NULL) 
 ```
