@@ -600,4 +600,16 @@ ints <- split(log2(chromPeaks(xdata)[, "into"]),
 boxplot(ints, varwidth = TRUE, col = group_colors[xdata$sample_group],
     ylab = expression(log[2]~intensity), main = "Peak intensities")
 grid(nx = NA, ny = NULL) 
+
+
+#The time at which analytes elute in the chromatography can vary between samples (and even compounds). Such a difference can be inspected using the extracted ion chromatogram plots. The alignment step, also referred to as retention time correction, aims at adjusting this by shifting signals along the retention time axis to align the signals between different samples within an experiment.
+
+#adjustRtime, besides calculating adjusted retention times for each spectrum, does also adjust the reported retention times of the identified chromatographic peaks.
+
+
+xdata <- adjustRtime(xdata, param = ObiwarpParam(binSize = 0.6))
+head(adjustedRtime(xdata))
+head(rtime(xdata))  ### defaults to adjustedRtime if it's present
+head(rtime(xdata, adjusted = FALSE)) ### returns original retention times
+
 ```
