@@ -344,12 +344,14 @@ MSnbase is used to load the data, but at the core of the pipeline xcms is used t
 pos.mzxml <- pos.mzml
 
 ## phenodata
-s_groups <- rep("Mouse1", length(pos.mzxml))
-s_groups[grep(pos.mzxml, pattern = "Mouse2")] <- "Mouse2"
-s_groups[grep(pos.mzxml, pattern = "Mouse5")] <- "Mouse5"
+# s_groups <- rep("Mouse1", length(pos.mzxml))
+# s_groups[grep(pos.mzxml, pattern = "Mouse2")] <- "Mouse2"
+# s_groups[grep(pos.mzxml, pattern = "Mouse5")] <- "Mouse5"
+
+s_groups <- sampclass(xsg.gaus)
 
 ## Define a data.frame that can be used as phenodata
-pheno <- data.frame(sample_name = sub(basename(pos.mzxml), pattern = ".mzXML", replacement = "", fixed = TRUE),
+pheno <- data.frame(sample_name = sub(basename(pos.mzxml), pattern = ".mzML", replacement = "", fixed = TRUE),
                     sample_group = s_groups, stringsAsFactors = FALSE)
 
 MSn.set.exp <- readMSData2(pos.mzxml, pdata = new("NAnnotatedDataFrame", pheno))
@@ -374,36 +376,36 @@ tics <- split(tic(MSn.set.exp), f = fromFile(MSn.set.exp))
 rts <- split(rtime(MSn.set.exp), f = fromFile(MSn.set.exp))
 
 ## Define the color for each sample
-sample_colors <- brewer.pal(3, "Set1")[1:3]
+sample_colors <- brewer.pal(2, "Set1")[1:2]
 names(sample_colors) <- unique(s_groups)
 cols <- paste0(sample_colors[pData(MSn.set.exp)$sample_group], 80)
 
 exp.polarity <- as.character()
 if(gsub("^.*/","",dirname(path.pos[1])) == "pos") {exp.polarity <- "ESI+"}
 if(gsub("^.*/","",dirname(path.pos[1])) == "neg") {exp.polarity <- "ESI-"}
-pdf(paste0("TIC_Plot_", basename(path.pos[[1]]), "_", exp.polarity, ".pdf"))
+#pdf(paste0("TIC_Plot_", basename(path.pos[[1]]), "_", exp.polarity, ".pdf"))
 plot(3, 3, pch = NA, xlim = range(rts), ylim = range(tics), main = paste0("Total Ion Current (", basename(path.pos[[1]]), " ", exp.polarity, " samples)"),
      xlab = "RT (retention time)", ylab = "intensity")
 tmp <- mapply(rts, tics, cols, FUN = function(x, y, col) {
     points(x = x, y = y, col = col, type = "l")
 })
 legend("topleft", col = sample_colors, legend = names(sample_colors), lty = 1)
-dev.off()
+#dev.off()
 ```
 
 ```{r BPC plot}
 chrs <- extractChromatograms(MSn.set.exp, aggregationFun = "max")
 
-pdf(paste0("BPC_Plot_", basename(path.pos[[1]]), "_", exp.polarity, ".pdf"))
+#pdf(paste0("BPC_Plot_", basename(path.pos[[1]]), "_", exp.polarity, ".pdf"))
 plotChromatogram(
     chrs,
     col = paste0(sample_colors[pData(MSn.set.exp)$sample_group], 80), main=paste0("Base Peak Chromatogram (", basename(path.pos[[1]]), " ", exp.polarity, " samples)"))
 legend("topleft", col = sample_colors, legend = names(sample_colors), lty = 1)
-dev.off()
+#dev.off()
 ```
 
 ```{r Inspect the data}
-subs <- filterFile(filterRt(MSn.set.exp, rt = c(850,900)), file = 1) ### choose file and rt range
+subs <- filterFile(filterRt(MSn.set.exp, rt = c(350,400)), file = 1) ### choose file and rt range
 
 ## Extract the Spectrum
 spctr <- spectra(subs)[[1]]
@@ -413,8 +415,9 @@ plot(mz(spctr), intensity(spctr), type = "h", xlab = "mz", ylab = "intensity", m
 peaks intensities are in columns  
 "into" (integrated peak signal)  
 "maxo" (maximum signal at the peak’s apex)  
-```{r Peak detection}
-cwp <- CentWavePredIsoParam(ppm=30)
+```{r Peak detection, cache = TRUE}
+#cwp <- CentWavePredIsoParam(ppm=30)
+cwp <- MassifquantParam(ppm = 30, snthresh = 40, prefilter = c(3, 50000), noise = 12000, withWave = TRUE, peakwidth = c(15, 45))
 msn.chpeaks <- findChromPeaks(MSn.set.exp, param = cwp)
 msn.chpeaks
 head(chromPeaks(msn.chpeaks))
@@ -423,7 +426,7 @@ table(detected.peaks[,"sample"]) ###Number of peaks per sample
 table(detected.peaks[,"sample"])/sum(detected.peaks[,"sample"])
 ```
 
-```{r Highlighting detected peaks}
+```{r Highlighting detected peaks, eval=FALSE}
 chromPeaks(msn.chpeaks, mz = 316.1165)
 chrs <- extractChromatograms(msn.chpeaks, mz = 316.1165, rt = 2.992)
 
@@ -434,7 +437,7 @@ chrs <- extractChromatograms(msn.chpeaks, mz = 316.1165, rt = 2.992)
 #    border = paste0(sample_colors[pData(msn.chpeaks)$sample_group], 40))
 ```
 
-```{r Adjust retention time}
+```{r Adjust retention time, eval=FALSE}
 msn.rt <- adjustRtime(msn.chpeaks, param = ObiwarpParam())
 hasAdjustedRtime(msn.rt)
 head(rtime(msn.rt)) ###Adjusted retention times
@@ -459,7 +462,7 @@ par(mar = c(4, 4, 0.5, 0.5))
 plotAdjustedRtime(msn.rt.g, col = cols)
 ```
 
-```{r Filling in missing peaks and Producing Peakimage (General visualizations of peak detection results)}
+```{r Filling in missing peaks and Producing Peakimage (General visualizations of peak detection results), eval=FALSE}
 head(featureValues(msn.rt.g, value = "into"))
 msn.rt.g <- fillChromPeaks(msn.rt.g)
 head(featureValues(msn.rt.g, value = "into"))
@@ -488,7 +491,7 @@ dev.off()
 #apLCMS.set <- apLCMS::cdf.to.ftr(path.pos, file.pattern = ".mzXML")
 ```
 
-```{r IPO / XCMS Parameter Optimization}
+```{r IPO / XCMS Parameter Optimization, eval=FALSE}
 peakpickingParameters <- IPO::getDefaultXcmsSetStartingParams('centWave')
 peakpickingParameters$step <- c(0.2, 0.3)
 peakpickingParameters$fwhm <- c(2, 60)
