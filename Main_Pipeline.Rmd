@@ -572,4 +572,10 @@ pander::pandoc.table(T,
 
 ### plot the location of the identified chromatographic peaks in the m/z - retention time space for one file
 plotChromPeaks(xdata, file = 3) 
+
+
+### plot the frequency of identified peaks per file along the retention time axis. This allows to identify time periods along the MS run in which a higher number of peaks was identified and evaluate whether this is consistent across files.
+### The frequency is color coded with higher frequency being represented by yellow-white.
+plotChromPeakImage(xdata) 
+
 ```
