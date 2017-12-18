@@ -147,9 +147,9 @@ dim(xset.pos@peaks)
 - Grouping has its own methods too (density, mzClust, nearest)  
 Q: How do we tune grouping parameters? How do we find the best ones for our data?  
 ```{r Grouping peaks representing the same analyte across samples / matching peaks across samples}
-?group.density
-?group.mzClust
-?group.nearest
+#?group.density
+#?group.mzClust
+#?group.nearest
 xsg.pos <- group(xset.pos, sleep = 0.02)
 xsg.pos.mzClust <- group.mzClust(xset.pos, mzppm = 5)
 ```
@@ -333,7 +333,7 @@ Processing with peakML
 ```
 
 ```{r PeakML Viewer}
-PeakML.Viewer()
+#PeakML.Viewer()
 ###Load xset.peakml generated in the previous step
 ```
 
