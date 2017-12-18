@@ -18,6 +18,7 @@ Soon to be added:
 - https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/CAMERA.pdf  
 - https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/IsotopeDetectionVignette.pdf  
 - https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/compoundQuantilesVignette.pdf  
+- Visualization of xsg.gaus using https://plot.ly/r/3d-surface-plots/#multiple-surfaces  
   
   
 See these papers for some discussion on file formats:  
