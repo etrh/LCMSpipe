@@ -198,6 +198,14 @@ pca.result <- pca(data, nPcs = 8)
 plotPcs(pca.result, type="loadings", 
         col=as.numeric(sampclass(xsg.gaus))+1)
 
+pcares <- as.data.frame(pca.result@loadings)
+
+plot_ly(pcares, x = ~PC1, y = ~PC2, z = ~PC3, color = (sampclass(xsg.gaus)), colors = c("#377EB8", "#4DAF4A")) %>%
+    add_markers() %>%
+    layout(scene = list(xaxis = list(title = 'PC #1'),
+                        yaxis = list(title = 'PC #2'),
+                        zaxis = list(title = 'PC #3')))
+
 #pca <- prcomp(t(data), scale.=TRUE)
 #gr <- factor(as.numeric(sampclass(xsg.gaus))+1)
 #summary(gr)
@@ -217,7 +225,7 @@ dim(peaks(xsg.gaus)) ###Another way to do what was done in the previous line
 
 
 ‘diffreport’ computes Welch's two-sample t-statistic for each analyte and ranks them by p-value. In brief, it performs univariate analysis on our peaks.  
-Q: When using 'diffreport', it is possible to include three sample classes (or even many more) by defining the class1/class2 arguments as c("sample2","sample3"). Does that, however, have any impact on the final result? In brief, is there a difference between `class1=c("Mouse1", "Mouse2"), class2="Mouse5"` and `(class1="Mouse1", class2=c( "Mouse2","Mouse5"))`  
+Q: When using 'diffreport', it is possible to include three sample classes (or even many more) by defining the class1/class2 arguments as c("sample2","sample3"). Does that, however, have any impact on the final result? In brief, is there a difference between `class1=c("Mouse1", "Mouse2"), class2="Mouse5"` and `class1="Mouse1", class2=c("Mouse2","Mouse5")`  
 ```{r Extracting ion chromatograms for significant ions and reporting the most statistically significant differences in analyte intensities / A report showing the most significant differences between two sets of samples, message=FALSE}
 rep.gaus <- diffreport(object = xsg.gaus, 
                        class1 = levels(sampclass(xsg.gaus))[1], 
