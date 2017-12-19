@@ -669,5 +669,10 @@ hasAdjustedRtime(xdata)
 
 #The definition of the sample groups (i.e. assignment of individual samples to the sample groups in the experiment) is mandatory for the PeakDensityParam. If there are no sample groups in the experiment sampleGroups should be set to a single value for each file (e.g.  rep(1, length(fileNames(xdata))).
 
-
+x = split(mz(raw_data), f = fromFile(raw_data))
+y = split(intensity(raw_data), f = fromFile(raw_data))
+z = (split(rtime(raw_data), f = fromFile(raw_data)))
+dl <- data.frame(mz = unlist(x$`1`), int = unlist(y$`1`), rt = rep(z$`1`, lapply(x$`1`, Biobase::listLen)))
+dl <- data.frame(mz = unlist(x$`1`), int = unlist(y$`1`), rt = rep(z$`1`, (Biobase::listLen(x$`1`))))
+plot_ly ## surface 3D plot
 ```
