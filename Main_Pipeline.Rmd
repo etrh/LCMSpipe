@@ -674,5 +674,6 @@ y = split(intensity(raw_data), f = fromFile(raw_data))
 z = (split(rtime(raw_data), f = fromFile(raw_data)))
 dl <- data.frame(mz = unlist(x$`1`), int = unlist(y$`1`), rt = rep(z$`1`, lapply(x$`1`, Biobase::listLen)))
 dl <- data.frame(mz = unlist(x$`1`), int = unlist(y$`1`), rt = rep(z$`1`, (Biobase::listLen(x$`1`))))
-plot_ly ## surface 3D plot
+p <- plot_ly(x = dl$mz, y = dl$int, z = as.matrix(dl$rt)) %>% add_surface() ## surface 3D plot
+p
 ```
