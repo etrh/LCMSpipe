@@ -151,7 +151,8 @@ Q: How do we tune grouping parameters? How do we find the best ones for our data
 #?group.density
 #?group.mzClust
 #?group.nearest
-xsg.pos <- group(xset.pos, sleep = 0.02)
+xsg.pos <- group(xset.pos)
+#xsg.pos <- group(xset.pos, sleep = 0.02)
 xsg.pos.mzClust <- group.mzClust(xset.pos, mzppm = 5)
 ```
 
