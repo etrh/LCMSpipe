@@ -296,6 +296,7 @@ tail(dat)
 #plot(eiccor.gaus, col=as.numeric(phenoData(xsg.gaus)$class))
 ```
 
+"Derivative signals such as isotopes, adducts, dimers and fragments, can be automatically annotated by correlation analysis on both signal shape and intensity patterns using software tools like CAMERA [53], PUTMEDID-LCMS [54] and mzMatch [55]. Such peaks are not discarded, but only flagged, so that their assigned annotations can be taken into account in the metabolite identification step."
 ```{r Isotope and Adduct Detection --- UNDER DEVELOPMENT | Be cautious}
 an <- xsAnnotate(xsg.gaus, polarity="positive") # constructor; extracts peak table
 an <- groupFWHM(an, perfwhm = 1) # group peaks by retention time
