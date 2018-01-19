@@ -9,7 +9,8 @@ Currently the pipeline encompasses the following steps:
 - Convert .d folders (Agilent proprietary format) to mzXML or mzML (preferred) using MSConvert from the ProteoWizard toolbox  
 - Use XCMS to analyze the data (pre-processing and univariate statistical analysis)  
 - Use MetaboAnalyst.ca for multivariate data analysis  
-
+  
+  
 Soon to be added:  
 - Implement MetaboAnalyst in R  
 - Isotope/adduct annotation using CAMERA  
@@ -21,10 +22,19 @@ Soon to be added:
 - Visualization of xsg.gaus using https://plot.ly/r/3d-surface-plots/#multiple-surfaces  
   
   
+Thing to do:  
+- Add the multivariate statistical analysis approach to this file (using `MetaboAnalystR` package)  
+- Implement tSNE and ICA  
+- Try the `mz.unity` package  
+- MetFrag using MS/MS data  
+- Use `IPO` on the computing cluster and evaluate its results  
+  
+  
 See these papers for some discussion on file formats:  
 - https://doi.org/10.1016/j.jasms.2010.06.014  
 - https://dx.doi.org/10.1007%2F978-1-60761-444-9_22  
 - https://dx.doi.org/10.1074%2Fmcp.R110.000133  
+  
   
 On UNIX-based systems you will first need to ensure the following are installed:  
   netcdf-bin  
@@ -296,7 +306,7 @@ tail(dat)
 #plot(eiccor.gaus, col=as.numeric(phenoData(xsg.gaus)$class))
 ```
 
-"Derivative signals such as isotopes, adducts, dimers and fragments, can be automatically annotated by correlation analysis on both signal shape and intensity patterns using software tools like CAMERA [53], PUTMEDID-LCMS [54] and mzMatch [55]. Such peaks are not discarded, but only flagged, so that their assigned annotations can be taken into account in the metabolite identification step."
+"Derivative signals such as isotopes, adducts, dimers and fragments, can be automatically annotated by correlation analysis on both signal shape and intensity patterns using software tools like CAMERA, PUTMEDID-LCMS and mzMatch. Such peaks are not discarded, but only flagged, so that their assigned annotations can be taken into account in the metabolite identification step."
 ```{r Isotope and Adduct Detection --- UNDER DEVELOPMENT | Be cautious}
 an <- xsAnnotate(xsg.gaus, polarity="positive") # constructor; extracts peak table
 an <- groupFWHM(an, perfwhm = 1) # group peaks by retention time
