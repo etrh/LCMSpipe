@@ -22,7 +22,7 @@ Soon to be added:
 - Visualization of xsg.gaus using https://plot.ly/r/3d-surface-plots/#multiple-surfaces  
   
   
-Thing to do:  
+Things to do:  
 - Add the multivariate statistical analysis approach to this file (using `MetaboAnalystR` package)  
 - Implement tSNE and ICA  
 - Check whether `metabomxtr` package can be useful  
