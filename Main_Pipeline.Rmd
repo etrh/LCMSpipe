@@ -25,7 +25,7 @@ Soon to be added:
 Thing to do:  
 - Add the multivariate statistical analysis approach to this file (using `MetaboAnalystR` package)  
 - Implement tSNE and ICA  
-- Try the `mz.unity` package  
+- Try the `mz.unity` package  (https://github.com/nathaniel-mahieu/mz.unity)
 - MetFrag using MS/MS data  
 - Use `IPO` on the computing cluster and evaluate its results  
   
