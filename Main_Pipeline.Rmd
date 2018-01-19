@@ -25,9 +25,11 @@ Soon to be added:
 Thing to do:  
 - Add the multivariate statistical analysis approach to this file (using `MetaboAnalystR` package)  
 - Implement tSNE and ICA  
+- Check whether `metabomxtr` package can be useful  
 - Try the `mz.unity` package  (https://github.com/nathaniel-mahieu/mz.unity)
 - MetFrag using MS/MS data  
 - Use `IPO` on the computing cluster and evaluate its results  
+- Compare `CAMERA` to `metaMS`  
   
   
 See these papers for some discussion on file formats:  
