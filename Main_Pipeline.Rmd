@@ -31,74 +31,70 @@ Things to do:
 - Compare `CAMERA` to `metaMS`  
 - Isotope/adduct annotation using CAMERA  
 - Visualization of xsg.gaus using https://plot.ly/r/3d-surface-plots/#multiple-surfaces  
+- Try `mzmatch.R` and `apLCMS`
   
   
   
-On UNIX-based systems you will first need to ensure the following are installed:  
-  netcdf-bin  
-  libnetcdf-dev  
-  gfortran  
-  libblas-dev  
-  liblapack-dev  
-  pcre  
-  lzma  
-  bz2  
-  gtk  
+On UNIX-based systems you will first need to ensure that the following requirements are installed:  
   jre/jvm  
   `sudo apt-get install -y libxml2-dev libcurl4-openssl-dev libssl-dev netcdf-bin libnetcdf-dev gfortran libblas-dev liblapack-dev libpcre++-dev liblzma-dev libbz2-dev libgtk2.0-dev bwidget libglu1-mesa-dev freeglut3-dev mesa-common-dev`
   
   
 ```{r Setup, include=FALSE}
-####Make sure you have the latest version of R and Rstudio
+# # # # - - - - IMPORTANT: make sure you have the latest version of R installed - - - - # # # #
 
 update.packages()
-if(!require(pacman)){install.packages("pacman")}
+#update.packages(repos = "https://cloud.r-project.org/")
+
+#if(!require(pacman)){install.packages("pacman")}
+
 source("http://bioconductor.org/biocLite.R")
+if(!require(MSnbase)){biocLite("MSnbase", dependencies = TRUE)}
+if(!require(xcms)){biocLite("xcms", dependencies = TRUE)}
+if(!require(CAMERA)){biocLite("CAMERA", dependencies = TRUE)}
+if(!require(IPO)){biocLite("IPO", dependencies = TRUE)}
 
-pacman::p_install("MASS", "mzR", "rgl", "splines", "parallel","doParallel", "foreach", "iterators", "snow", "ROCR", "ROCS", "e1071", "randomForest", "gbm" , "rJava", "RColorBrewer", "plotly", "multtest", "XML", "caTools", "bitops", "ptw", "gplots", "tcltk2", "IPO", "CAMERA", "pcaMethods","pca3d", "Rtsne", "pander", "imager")
-
-if(!require(xcms)){biocLite("MSnbase")}
-if(!require(xcms)){biocLite("xcms")}
-
+#Development versions of MSnbase and xcms
 #if(!require(MSnbase)){biocLite("lgatto/MSnbase")}
 #if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
 
-if(!require(MetaboAnalystR)){devtools::install_github("xia-lab/MetaboAnalystR", build_vignettes=TRUE)}
-library(MetaboAnalystR)
+necessary_packages <- c("rgl", "ROCS", "e1071", "randomForest", 
+                        "gbm", "rJava", "plotly", "ptw", "tcltk2", 
+                        "pca3d", "Rtsne","pander", "imager", "ROCR")
+
+required_by_metaboanalyst <- c("Rserve", "RColorBrewer", "xtable", "som", "ROCR", "RJSONIO", "gplots", "e1071", "caTools", "igraph", "randomForest", "Cairo", "pls", "pheatmap", "lattice", "rmarkdown", "knitr", "data.table", "pROC", "Rcpp", "caret", "ellipse", "scatterplot3d", "impute", "pcaMethods", "siggenes", "globaltest", "GlobalAncova", "Rgraphviz", "KEGGgraph", "preprocessCore", "genefilter", "SSPA", "sva", "limma", "car", "fitdistrplus")
+
+install.necessary.packages <- function(pkg){
+    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+    if (length(new.pkg)) install.packages(new.pkg)
+}
+
+install.necessary.packages(necessary_packages)
+install.necessary.packages(required_by_metaboanalyst)
+
+if(!require(MetaboAnalystR)){devtools::install_github("xia-lab/MetaboAnalystR", 
+                                                      build_vignettes = TRUE)}
 #vignette(package="MetaboAnalystR")
 
-#if(!require(mzmatch.R)){
-#  download.file("http://puma.ibls.gla.ac.uk/mzmatch.R/mzmatch.R.tar.gz","mzmatch.R.tar.gz",cacheOK=FALSE)
-#  install.packages(pkgs="mzmatch.R.tar.gz",repos=NULL,type="source")
-#  file.remove ("mzmatch.R.tar.gz")}
-
-#if(!require(apLCMS)){
-#  install.packages("apLCMS_6.4.1.zip", repos=NULL, type="source")
-#  }
-
-
-library(devtools)
-library(MSnbase)
-library(xcms)
-library(doParallel)
-library(RColorBrewer)
-library(MSnbase)
-library(plotly)
-library(IPO)
-library(plotly)
-#library(apLCMS)
-library (rJava)
-#library(mzmatch.R)
-#.jinit ()
-#mzmatch.init()
-
-update.packages(repos = "https://cloud.r-project.org/")
 source("https://bioconductor.org/biocLite.R")
 biocLite()
-source("https://bioconductor.org/biocLite.R")
-#biocLite("BiocUpgrade")
+tryCatch({biocLite("BiocUpgrade")}, error=function(e){print(paste(conditionMessage(e)))})
 biocValid()
 
+library(MSnbase)
+library(xcms)
+library(CAMERA)
+library(IPO)
+library(MetaboAnalystR)
+
+library(doParallel)
+library(RColorBrewer)
+
+library(plotly)
+
+#library(rJava)
+#.jinit ()
+#mzmatch.init()
 ```
 
 ```{r Load positive data, include=FALSE}
@@ -529,7 +525,7 @@ peakpickingParameters$steps <- 10
 peakpickingParameters$sigma <- 0
 peakpickingParameters$max <- 0
 peakpickingParameters$index <- FALSE
-data <- list.files("/storage/brno3-cerit/nfs4/home/amizeranschi/home/azareie/Documents/Rprojects/Freezing_Experiment/pos/Frozen/", recursive = T, full.names = T)
+data <- list.files("data_Kralova_ESI_minus", recursive = T, full.names = T)
 optimized.xcmsSet <- system.time({
     resultPeakpicking <- optimizeXcmsSet(files = data, 
                        params = peakpickingParameters,
@@ -540,7 +536,7 @@ optimized.xcmsSet <- system.time({
 ```
 
 ```{r XCMS3 Pipeline}
-files.path <- "/storage/brno3-cerit/nfs4/home/amizeranschi/home/azareie/Documents/LCMS-Data/Mzb1/"
+files.path <- "LCMS-Data/Mzb1/"
 mzml.files <- list.files(files.path, recursive = T, full.names = T, pattern=".mzML")
 mzml.files
 
