@@ -22,16 +22,13 @@ Help/Guides:
   
   
 Things to do:  
-- Add the multivariate statistical analysis approach to this file (using `MetaboAnalystR` package)  
+- Add the multivariate statistical analysis approach to this file (using `MetaboAnalystR` package) 
 - Implement tSNE and ICA  
-- Check whether `metabomxtr` package can be useful  
-- Try the `mz.unity` package  (https://github.com/nathaniel-mahieu/mz.unity)
+- Try `metabomxtr`, `mzmatch.R`, `mz.unity`, and `apLCMS` packages 
 - MetFrag using MS/MS data  
 - Use `IPO` on the computing cluster and evaluate its results  
-- Compare `CAMERA` to `metaMS`  
-- Isotope/adduct annotation using CAMERA  
+- Isotope/adduct annotation using CAMERA; Compare `CAMERA` and `metaMS` 
 - Visualization of xsg.gaus using https://plot.ly/r/3d-surface-plots/#multiple-surfaces  
-- Try `mzmatch.R` and `apLCMS`
   
   
   
@@ -58,11 +55,9 @@ if(!require(IPO)){biocLite("IPO", dependencies = TRUE)}
 #if(!require(MSnbase)){biocLite("lgatto/MSnbase")}
 #if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
 
-necessary_packages <- c("rgl", "ROCS", "e1071", "randomForest", 
-                        "gbm", "rJava", "plotly", "ptw", "tcltk2", 
-                        "pca3d", "Rtsne","pander", "imager", "ROCR")
+necessary_packages <- c("ROCS", "rJava", "plotly", "ptw", "tcltk2", "pca3d", "imager")
 
-required_by_metaboanalyst <- c("Rserve", "RColorBrewer", "xtable", "som", "ROCR", "RJSONIO", "gplots", "e1071", "caTools", "igraph", "randomForest", "Cairo", "pls", "pheatmap", "lattice", "rmarkdown", "knitr", "data.table", "pROC", "Rcpp", "caret", "ellipse", "scatterplot3d", "impute", "pcaMethods", "siggenes", "globaltest", "GlobalAncova", "Rgraphviz", "KEGGgraph", "preprocessCore", "genefilter", "SSPA", "sva", "limma", "car", "fitdistrplus")
+required_by_metaboanalyst <- c("Rserve", "som", "ROCR", "RJSONIO", "Cairo", "pheatmap", "lattice", "pROC", "ellipse", "scatterplot3d", "siggenes", "globaltest", "GlobalAncova", "Rgraphviz", "KEGGgraph", "SSPA", "sva", "car", "fitdistrplus")
 
 install.necessary.packages <- function(pkg){
     new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
@@ -76,6 +71,7 @@ if(!require(MetaboAnalystR)){devtools::install_github("xia-lab/MetaboAnalystR",
                                                       build_vignettes = TRUE)}
 #vignette(package="MetaboAnalystR")
 
+update.packages()
 source("https://bioconductor.org/biocLite.R")
 biocLite()
 tryCatch({biocLite("BiocUpgrade")}, error=function(e){print(paste(conditionMessage(e)))})
