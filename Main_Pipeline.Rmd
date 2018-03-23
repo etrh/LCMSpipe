@@ -43,7 +43,7 @@ On UNIX-based systems you will first need to ensure that the following requireme
 update.packages()
 #update.packages(repos = "https://cloud.r-project.org/")
 
-#if(!require(pacman)){install.packages("pacman")}
+if(!require(pacman)){install.packages("pacman")}
 
 source("http://bioconductor.org/biocLite.R")
 if(!require(MSnbase)){biocLite("MSnbase", dependencies = TRUE)}
@@ -55,9 +55,9 @@ if(!require(IPO)){biocLite("IPO", dependencies = TRUE)}
 #if(!require(MSnbase)){biocLite("lgatto/MSnbase")}
 #if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
 
-necessary_packages <- c("ROCS", "rJava", "plotly", "ptw", "tcltk2", "pca3d", "imager")
+necessary_packages <- c("devtools", "ROCS", "rJava", "plotly", "ptw", "tcltk2", "pca3d", "imager")
 
-required_by_metaboanalyst <- c("Rserve", "som", "ROCR", "RJSONIO", "Cairo", "pheatmap", "lattice", "pROC", "ellipse", "scatterplot3d", "siggenes", "globaltest", "GlobalAncova", "Rgraphviz", "KEGGgraph", "SSPA", "sva", "car", "fitdistrplus")
+pacman::p_load("Rserve", "som", "ROCR", "RJSONIO", "Cairo", "pheatmap", "lattice", "pROC", "ellipse", "scatterplot3d", "siggenes", "globaltest", "GlobalAncova", "Rgraphviz", "KEGGgraph", "SSPA", "sva", "car", "fitdistrplus")
 
 install.necessary.packages <- function(pkg){
     new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
@@ -65,7 +65,7 @@ install.necessary.packages <- function(pkg){
 }
 
 install.necessary.packages(necessary_packages)
-install.necessary.packages(required_by_metaboanalyst)
+#install.necessary.packages(required_by_metaboanalyst)
 
 if(!require(MetaboAnalystR)){devtools::install_github("xia-lab/MetaboAnalystR", 
                                                       build_vignettes = TRUE)}
