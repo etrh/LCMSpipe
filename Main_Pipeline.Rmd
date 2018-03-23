@@ -33,8 +33,7 @@ Things to do:
   
   
 On UNIX-based systems you will first need to ensure that the following requirements are installed:  
-  jre/jvm  
-  `sudo apt-get install -y libxml2-dev libcurl4-openssl-dev libssl-dev netcdf-bin libnetcdf-dev gfortran libblas-dev liblapack-dev libpcre++-dev liblzma-dev libbz2-dev libgtk2.0-dev bwidget libglu1-mesa-dev freeglut3-dev mesa-common-dev`
+  `sudo apt-get install -y libxml2-dev libcurl4-openssl-dev libssl-dev netcdf-bin libnetcdf-dev gfortran libblas-dev liblapack-dev libpcre++-dev liblzma-dev libbz2-dev libgtk2.0-dev bwidget libglu1-mesa-dev freeglut3-dev mesa-common-dev default-jre default-jdk`
   
   
 ```{r Setup, include=FALSE}
@@ -94,8 +93,8 @@ library(plotly)
 ```
 
 ```{r Load data, include=FALSE}
-path.pos <- "data/Rik/ESI+/" ####path to converted mzXML files
-path.neg <- "data/Rik/ESI-/"
+path.pos <- "data/Rik/ESI+" ####path to converted mzXML files
+path.neg <- "data/Rik/ESI-"
 
 ###Creating sub-directories for samples/batches are allowed and recommended
 pos.mzml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzML")
@@ -164,7 +163,10 @@ xset.neg.mquant <- xcmsSet(neg.mzml, method = "massifquant",
 
 
 ```{r Viewing the constructed xcmsSet, echo=FALSE}
-xset.pos
+xset.pos.centw
+xset.pos.mquant
+xset.neg.centw
+xset.neg.mquant
 ```
 
 
