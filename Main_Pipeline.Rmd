@@ -93,15 +93,16 @@ library(plotly)
 #mzmatch.init()
 ```
 
-```{r Load positive data, include=FALSE}
-path.pos <- "/storage/brno3-cerit/nfs4/home/amizeranschi/home/azareie/Documents/LCMS-Data/81Z/" ####path to converted mzXML files
-###Get the files from \\primus.img.cas.cz\data\18_lab\Bioinformatics\Freezing_Experiment
-###"pos" stands for ESI+ (Electrospray ionization - positive polarity)
-###"neg" stands for ESI- (Electrospray ionization - negative polarity)
-###use MSConvert (http://proteowizard.sourceforge.net/)
+```{r Load data, include=FALSE}
+path.pos <- "data/Rik/ESI+/" ####path to converted mzXML files
+path.neg <- "data/Rik/ESI-/"
+
 ###Creating sub-directories for samples/batches are allowed and recommended
 pos.mzml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzML")
 pos.mzml
+
+neg.mzml <- list.files(path.neg, recursive = T, full.names = T, pattern=".mzML")
+neg.mzml
 ```
 
 **PEAK PICKING METHOD**  
@@ -110,12 +111,51 @@ pos.mzml
 - Irregardless of the peak picking method chosen, there are many parameters that can be tuned. The rule of thumb is, if you do not understand what a parameter exactly does, then it is best to use the default value.  
 - "Mass deviation μ in ppm, typically set to a generous multiple of the mass accuracy of the mass spectrometer. We use μ = 30 ppm for the Bruker MicrOTOF-Q, which is advertised with a mass accuracy of 3–5 ppm". (doi: 10.1186/1471-2105-9-504)  
 - Q: How do we find the best tuning parameters for our dataset? (e.g. 'fwhm' specifies full width at half maximum (default is 30s) based on the type of chromatography)  
-- Q: Is it a good idea to load all sample sets (Fresh, Frozen 24h, Frozen 1w) into one xcmsSet? To a high degree, this may not be a good idea, especially when samples are from different experiments  
+- Q: Is it a good idea to load all sample sets (Fresh, Frozen 24h, Frozen 1w) into one xcmsSet?
 
-```{r xcmsSet for positive data / peak identification, cache = TRUE}
-#xset.pos <- xcmsSet(pos.mzml, method = "centWaveWithPredictedIsotopeROIs", ppm = 30)
-xset.pos <- xcmsSet(pos.mzml, method = "massifquant", ppm = 30, snthresh = 40, prefilter = c(3, 50000), noise = 12000, withWave = TRUE, peakwidth = c(15, 45))
-###ppm is set to 30, hence peak picking can take a very long time to complete
+```{r xcmsSet / peak identification}
+param.ppm <- 30
+param.snthresh <- 65
+param.prefilter <- c(5, 10000)
+param.noise <- 6500
+param.peakwidth <- c(12,28)
+
+xset.pos.centw <- xcmsSet(pos.mzml, method = "centWaveWithPredictedIsotopeROIs", 
+                          ppm = param.ppm, 
+                           snthresh = param.snthresh, 
+                           prefilter = param.prefilter, 
+                           noise = param.noise, 
+                           peakwidth = param.peakwidth)
+
+xset.pos.mquant <- xcmsSet(pos.mzml, method = "massifquant", 
+                           withWave = TRUE, 
+                           ppm = param.ppm, 
+                           snthresh = param.snthresh, 
+                           prefilter = param.prefilter, 
+                           noise = param.noise, 
+                           peakwidth = param.peakwidth)
+
+param.neg.ppm <- 30
+param.neg.snthresh <- 30
+param.neg.prefilter <- c(5, 9000)
+param.neg.noise <- 4500
+param.neg.peakwidth <- c(12,35)
+
+xset.neg.centw <- xcmsSet(neg.mzml, method = "centWaveWithPredictedIsotopeROIs", 
+                          ppm = param.neg.ppm, 
+                          snthresh = param.neg.snthresh, 
+                          prefilter = param.neg.prefilter, 
+                          noise = param.neg.noise, 
+                          peakwidth = param.neg.peakwidth)
+
+xset.neg.mquant <- xcmsSet(neg.mzml, method = "massifquant", 
+                           withWave = TRUE, 
+                           ppm = param.neg.ppm, 
+                           snthresh = param.neg.snthresh, 
+                           prefilter = param.neg.prefilter, 
+                           noise = param.neg.noise, 
+                           peakwidth = param.neg.peakwidth)
+
 ###Use BPPARAM = MulticoreParam(detectCores()) for enabling parallel computing
 ```
 
