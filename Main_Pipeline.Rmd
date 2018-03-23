@@ -119,13 +119,15 @@ param.snthresh <- 65
 param.prefilter <- c(5, 10000)
 param.noise <- 6500
 param.peakwidth <- c(12,28)
+param.parallelization <- MulticoreParam(floor(detectCores() * 0.9)) ### use 90% of the cores for parallel computing
 
 xset.pos.centw <- xcmsSet(pos.mzml, method = "centWaveWithPredictedIsotopeROIs", 
                           ppm = param.ppm, 
-                           snthresh = param.snthresh, 
-                           prefilter = param.prefilter, 
-                           noise = param.noise, 
-                           peakwidth = param.peakwidth)
+                          snthresh = param.snthresh, 
+                          prefilter = param.prefilter, 
+                          noise = param.noise, 
+                          peakwidth = param.peakwidth,
+                          BPPARAM = param.parallelization)
 
 xset.pos.mquant <- xcmsSet(pos.mzml, method = "massifquant", 
                            withWave = TRUE, 
@@ -133,7 +135,8 @@ xset.pos.mquant <- xcmsSet(pos.mzml, method = "massifquant",
                            snthresh = param.snthresh, 
                            prefilter = param.prefilter, 
                            noise = param.noise, 
-                           peakwidth = param.peakwidth)
+                           peakwidth = param.peakwidth,
+                           BPPARAM = param.parallelization)
 
 param.neg.ppm <- 30
 param.neg.snthresh <- 30
@@ -146,7 +149,8 @@ xset.neg.centw <- xcmsSet(neg.mzml, method = "centWaveWithPredictedIsotopeROIs",
                           snthresh = param.neg.snthresh, 
                           prefilter = param.neg.prefilter, 
                           noise = param.neg.noise, 
-                          peakwidth = param.neg.peakwidth)
+                          peakwidth = param.neg.peakwidth,
+                          BPPARAM = param.parallelization)
 
 xset.neg.mquant <- xcmsSet(neg.mzml, method = "massifquant", 
                            withWave = TRUE, 
@@ -154,9 +158,8 @@ xset.neg.mquant <- xcmsSet(neg.mzml, method = "massifquant",
                            snthresh = param.neg.snthresh, 
                            prefilter = param.neg.prefilter, 
                            noise = param.neg.noise, 
-                           peakwidth = param.neg.peakwidth)
-
-###Use BPPARAM = MulticoreParam(detectCores()) for enabling parallel computing
+                           peakwidth = param.neg.peakwidth,
+                           BPPARAM = param.parallelization)
 ```
 
 
