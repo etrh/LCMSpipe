@@ -246,32 +246,38 @@ xsg.neg.mquant.mzClust.retcor <- retcor(xsg.neg.mquant.mzClust, family="gaussian
 #xsg.pos.retcor.symmetric <- retcor(xsg.pos, family="symmetric", plottype="mdevden")
 #xsg.pos.retcor.obiwarp <- retcor.obiwarp(xsg.pos, plottype="deviation")
 
-xsg.pos.centw.retcor.obiwarp <- retcor.obiwarp(xsg.pos.centw, family="gaussian", plottype="mdevden")
-xsg.pos.mquant.retcor.obiwarp <- retcor.obiwarp(xsg.pos.mquant, family="gaussian", plottype="mdevden")
+xsg.pos.centw.retcor.obiwarp <- retcor.obiwarp(xsg.pos.centw, plottype="deviation")
+xsg.pos.mquant.retcor.obiwarp <- retcor.obiwarp(xsg.pos.mquant, plottype="deviation")
 
-xsg.neg.centw.retcor.obiwarp <- retcor.obiwarp(xsg.neg.centw, family="gaussian", plottype="mdevden")
-xsg.neg.mquant.retcor.obiwarp <- retcor.obiwarp(xsg.neg.mquant, family="gaussian", plottype="mdevden")
+xsg.neg.centw.retcor.obiwarp <- retcor.obiwarp(xsg.neg.centw, plottype="deviation")
+xsg.neg.mquant.retcor.obiwarp <- retcor.obiwarp(xsg.neg.mquant, plottype="deviation")
 
-xsg.pos.centw.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.pos.centw.mzClust, family="gaussian", plottype="mdevden")
-xsg.pos.mquant.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.pos.mquant.mzClust, family="gaussian", plottype="mdevden")
+xsg.pos.centw.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.pos.centw.mzClust, plottype="deviation")
+xsg.pos.mquant.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.pos.mquant.mzClust, plottype="deviation")
 
-xsg.neg.centw.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.neg.centw.mzClust, family="gaussian", plottype="mdevden")
-xsg.neg.mquant.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.neg.mquant.mzClust, family="gaussian", plottype="mdevden")
+xsg.neg.centw.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.neg.centw.mzClust, plottype="deviation")
+xsg.neg.mquant.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.neg.mquant.mzClust, plottype="deviation")
 ```
 
 
 When re-grouping the retention time-corrected xset, parameters can also be re-tuned once more. For example, we can choose a narrower 'bw'.  
 ```{r Re-grouping peaks representing the same analyte across samples. Grouping/retention time correction can and must be repeated several times}
-xsg.gaus <- group(xsg.pos.retcor.gaussian)
-xsg.gaus <- retcor(xsg.gaus, family="gaussian", plottype="mdevden")
-xsg.gaus <- group(xsg.gaus)
+xsg.gaus.pos <- group(xsg.pos.mquant.mzClust.retcor.obiwarp)
+xsg.gaus.pos <- retcor.obiwarp(xsg.gaus.pos, plottype="deviation")
+xsg.gaus.pos <- group(xsg.gaus.pos)
+
+xsg.gaus.neg <- group(xsg.neg.mquant.mzClust.retcor.obiwarp)
+xsg.gaus.neg <- retcor(xsg.gaus.neg, family="gaussian", plottype="mdevden")
+xsg.gaus.neg <- group(xsg.gaus.neg)
+
 #xsg.sym <- group(xsg.pos.retcor.symmetric, bw=10)
 #xsg.obw <- group(xsg.pos.retcor.obiwarp, bw=10)
 ```
 
 
 ```{r Fill in missing peaks using original data, message=FALSE, warning=FALSE}
-xsg.gaus <- fillPeaks(xsg.gaus)
+xsg.gaus.pos <- fillPeaks(xsg.gaus.pos)
+xsg.gaus.neg <- fillPeaks(xsg.gaus.neg)
 #xsg.sym <- fillPeaks(xsg.sym)
 #xsg.obw <- fillPeaks(xsg.obw)
 ```
@@ -280,22 +286,22 @@ xsg.gaus <- fillPeaks(xsg.gaus)
 ```{r QC}
 
 ###intensity
-boxplot(groupval(xsg.gaus, value="into")+1, 
-        col=as.numeric(sampclass(xsg.gaus))+1, 
+boxplot(groupval(xsg.gaus.pos, value="into")+1, 
+        col=as.numeric(sampclass(xsg.gaus.pos))+1, 
         log="y", las=2)
 
-plotQC(xsg.gaus)
+plotQC(xsg.gaus.pos)
 
 sdThresh <- 4.0 ## Filter low-standard deviation rows for plot
-data <- log(groupval(xsg.gaus, value="into")+1)
+data <- log(groupval(xsg.gaus.pos, value="into")+1)
 
-pca.result <- pca(data, nPcs = 8)
-plotPcs(pca.result, type="loadings", 
-        col=as.numeric(sampclass(xsg.gaus))+1)
+pca.result <- pcaMethods::pca(data, nPcs = 8)
+pcaMethods::plotPcs(pca.result, type="loadings", 
+        col=as.numeric(sampclass(xsg.gaus.pos))+1)
 
 pcares <- as.data.frame(pca.result@loadings)
 
-plot_ly(pcares, x = ~PC1, y = ~PC2, z = ~PC3, color = (sampclass(xsg.gaus)), colors = c("#377EB8", "#4DAF4A")) %>%
+plotly::plot_ly(pcares, x = ~PC1, y = ~PC2, z = ~PC3, color = (sampclass(xsg.gaus.pos)), colors = c("#377EB8", "#4DAF4A")) %>%
     add_markers() %>%
     layout(scene = list(xaxis = list(title = 'PC #1'),
                         yaxis = list(title = 'PC #2'),
@@ -311,30 +317,43 @@ plot_ly(pcares, x = ~PC1, y = ~PC2, z = ~PC3, color = (sampclass(xsg.gaus)), col
 "into" and "maxo" are (or at least seem to be) peak intensities and areas, respectively.  
 Peak list:  
 ```{r Results of peak detection}
-peaks(xsg.gaus)[1:25,]
-#peaks(xsg.sym)[1:10,]
-#peaks(xsg.obw)[1:10,]
-dim(xsg.gaus@peaks)
-dim(peaks(xsg.gaus)) ###Another way to do what was done in the previous line
+peaks(xsg.gaus.pos)[1:25,]
+dim(xsg.gaus.pos@peaks)
+#dim(peaks(xsg.gaus.pos)) ### Another way of doing what was done in the previous line
+
+peaks(xsg.gaus.neg)[1:25,]
+dim(xsg.gaus.neg@peaks)
 ```
 
 
 ‘diffreport’ computes Welch's two-sample t-statistic for each analyte and ranks them by p-value. In brief, it performs univariate analysis on our peaks.  
 Q: When using 'diffreport', it is possible to include three sample classes (or even many more) by defining the class1/class2 arguments as c("sample2","sample3"). Does that, however, have any impact on the final result? In brief, is there a difference between `class1=c("Mouse1", "Mouse2"), class2="Mouse5"` and `class1="Mouse1", class2=c("Mouse2","Mouse5")`  
 ```{r Extracting ion chromatograms for significant ions and reporting the most statistically significant differences in analyte intensities / A report showing the most significant differences between two sets of samples, message=FALSE}
-rep.gaus <- diffreport(object = xsg.gaus, 
-                       class1 = levels(sampclass(xsg.gaus))[1], 
-                       class2 = levels(sampclass(xsg.gaus))[2], 
-                       filebase = "diffreport", eicmax = 20, 
+rep.gaus.pos <- diffreport(object = xsg.gaus.pos, 
+                       class1 = levels(sampclass(xsg.gaus.pos))[1], 
+                       class2 = levels(sampclass(xsg.gaus.pos))[2], 
+                       filebase = "diffreport_ESI_pos", eicmax = 40, 
                        sortpval = TRUE,
-                       metlin = 0.5, mzdec = 4)
-####quality of peaks can be inspected by checking the figures in report_eic folder
+                       metlin = 0.5, mzdec = 5)
+
+rep.gaus.neg <- diffreport(object = xsg.gaus.neg, 
+                       class1 = levels(sampclass(xsg.gaus.neg))[1], 
+                       class2 = levels(sampclass(xsg.gaus.neg))[2], 
+                       filebase = "diffreport_ESI_neg", eicmax = 40, 
+                       sortpval = TRUE,
+                       metlin = 0.5, mzdec = 5)
+
+#### quality of peaks can be inspected by checking the figures in report_eic folder
 
 #rep.sym <- diffreport(xsg.sym, "Fresh", c("Frozen 1w", "Frozen 24h"), "Symmetric", 10, metlin=0.15)
 #rep.obw <- diffreport(xsg.obw, "Fresh", c("Frozen 1w", "Frozen 24h"), "Obiwarp", 10, metlin=0.15)
 
-rep.gaus[1:25,]
-tail(rep.gaus)
+rep.gaus.pos[1:25,]
+tail(rep.gaus.pos)
+
+rep.gaus.neg[1:25,]
+tail(rep.gaus.neg)
+
 #rep.sym[1:10,]
 #rep.obw[1:10,]
 ```
@@ -355,13 +374,21 @@ for(i in 1:length(eic)) {
 #– Samples are in  columns
 #– Group labels must be added by using 'phenoData'
 #- If there are duplicated mzRT values in the rows of the generated peak intensity matrix, MetaboAnalyst will result in an error. To fix this error, simply distinguish repeated values by adding 'A', 'B', 'C', etc. to them. For example, if you have the mzRT feature 54.04/1499.3 twice in the resulting table, simply change the second one to 54.04/1499.3A
-dat <- groupval(xsg.gaus, "medret", "into")
-rownames(dat) <- groupnames(xsg.gaus, mzdec=5, rtdec=5)
-dat <- rbind(group = as.character(phenoData(xsg.gaus)$class), dat)
-write.csv(dat, file='PeakIntensityMatrix_for_MetaboAnalyst.csv')
+dat <- groupval(xsg.gaus.pos, "medret", "into")
+rownames(dat) <- groupnames(xsg.gaus.pos, mzdec=5, rtdec=5)
+dat <- rbind(group = as.character(phenoData(xsg.gaus.pos)$class), dat)
+write.csv(dat, file='ESI+_PeakIntensityMatrix_MetaboAnalyst.csv')
 head(dat)
 tail(dat)
 #rm(dat)
+
+datneg <- groupval(xsg.gaus.neg, "medret", "into")
+rownames(datneg) <- groupnames(xsg.gaus.neg, mzdec=5, rtdec=5)
+datneg <- rbind(group = as.character(phenoData(xsg.gaus.neg)$class), datneg)
+write.csv(datneg, file='ESI-_PeakIntensityMatrix_MetaboAnalyst.csv')
+head(datneg)
+tail(datneg)
+#rm(datneg)
 
 #dat <- groupval(xsg.sym, "medret", "into")
 #dat <- rbind(group = as.character(phenoData(xsg.sym)$class), dat)
