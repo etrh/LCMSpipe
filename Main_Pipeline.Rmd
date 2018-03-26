@@ -171,11 +171,25 @@ xset.neg.mquant
 
 
 ```{r Peaks}
-paste0("Samples groups: ")
-levels(sampclass(xset.pos))
-colnames(xset.pos@peaks)
-head(xset.pos@peaks)
-dim(xset.pos@peaks)
+message(paste0("Sample groups: "))
+print(levels(sampclass(xset.pos.centw)))
+head(xset.pos.centw@peaks)
+dim(xset.pos.centw@peaks)
+
+message(paste0("Sample groups: "))
+print(levels(sampclass(xset.pos.mquant)))
+head(xset.pos.mquant@peaks)
+dim(xset.pos.mquant@peaks)
+
+message(paste0("Sample groups: "))
+print(levels(sampclass(xset.neg.centw)))
+head(xset.neg.centw@peaks)
+dim(xset.neg.centw@peaks)
+
+message(paste0("Sample groups: "))
+print(levels(sampclass(xset.neg.mquant)))
+head(xset.neg.mquant@peaks)
+dim(xset.neg.mquant@peaks)
 ```
 
 **mz** Intensity weighted mean of m/z values of the peak across scans.  
@@ -197,19 +211,52 @@ Q: How do we tune grouping parameters? How do we find the best ones for our data
 #?group.density
 #?group.mzClust
 #?group.nearest
-xsg.pos <- group(xset.pos)
+
 #xsg.pos <- group(xset.pos, sleep = 0.02)
-xsg.pos.mzClust <- group.mzClust(xset.pos, mzppm = 5)
+
+xsg.pos.centw <- group(xset.pos.centw)
+xsg.pos.mquant <- group(xset.pos.mquant)
+
+xsg.neg.centw <- group(xset.neg.centw)
+xsg.neg.mquant <- group(xset.neg.mquant)
+
+xsg.pos.centw.mzClust <- group.mzClust(xset.pos.centw, mzppm = 5)
+xsg.pos.mquant.mzClust <- group.mzClust(xset.pos.mquant, mzppm = 5)
+
+xsg.neg.centw.mzClust <- group.mzClust(xset.neg.centw, mzppm = 5)
+xsg.neg.mquant.mzClust <- group.mzClust(xset.neg.mquant, mzppm = 5)
 ```
 
 
 There are a few retention time correction methods in xcms: Gaussian, Symmetric, and Obiwarp.  
 Plot shows the data points used for regression and the resulting deviation profiles. It can be used for supervising the algorithm. The distribution of peak groups across retention time is also shown in the plot.  
 ```{r Retention time correction}
-xsg.pos.retcor.gaussian <- retcor(xsg.pos, family="gaussian", plottype="mdevden")
-xsg.pos.mzClust.retcor <- retcor(xsg.pos.mzClust, family="gaussian", plottype="mdevden")
+xsg.pos.centw.retcor <- retcor(xsg.pos.centw, family="gaussian", plottype="mdevden")
+xsg.pos.mquant.retcor <- retcor(xsg.pos.mquant, family="gaussian", plottype="mdevden")
+
+xsg.neg.centw.retcor <- retcor(xsg.neg.centw, family="gaussian", plottype="mdevden")
+xsg.neg.mquant.retcor <- retcor(xsg.neg.mquant, family="gaussian", plottype="mdevden")
+
+xsg.pos.centw.mzClust.retcor <- retcor(xsg.pos.centw.mzClust, family="gaussian", plottype="mdevden")
+xsg.pos.mquant.mzClust.retcor <- retcor(xsg.pos.mquant.mzClust, family="gaussian", plottype="mdevden")
+
+xsg.neg.centw.mzClust.retcor <- retcor(xsg.neg.centw.mzClust, family="gaussian", plottype="mdevden")
+xsg.neg.mquant.mzClust.retcor <- retcor(xsg.neg.mquant.mzClust, family="gaussian", plottype="mdevden")
+
 #xsg.pos.retcor.symmetric <- retcor(xsg.pos, family="symmetric", plottype="mdevden")
 #xsg.pos.retcor.obiwarp <- retcor.obiwarp(xsg.pos, plottype="deviation")
+
+xsg.pos.centw.retcor.obiwarp <- retcor.obiwarp(xsg.pos.centw, family="gaussian", plottype="mdevden")
+xsg.pos.mquant.retcor.obiwarp <- retcor.obiwarp(xsg.pos.mquant, family="gaussian", plottype="mdevden")
+
+xsg.neg.centw.retcor.obiwarp <- retcor.obiwarp(xsg.neg.centw, family="gaussian", plottype="mdevden")
+xsg.neg.mquant.retcor.obiwarp <- retcor.obiwarp(xsg.neg.mquant, family="gaussian", plottype="mdevden")
+
+xsg.pos.centw.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.pos.centw.mzClust, family="gaussian", plottype="mdevden")
+xsg.pos.mquant.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.pos.mquant.mzClust, family="gaussian", plottype="mdevden")
+
+xsg.neg.centw.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.neg.centw.mzClust, family="gaussian", plottype="mdevden")
+xsg.neg.mquant.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.neg.mquant.mzClust, family="gaussian", plottype="mdevden")
 ```
 
 
