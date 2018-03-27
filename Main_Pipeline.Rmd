@@ -457,14 +457,20 @@ plot(tTSNE.features$Y, main = "T-distributed Stochastic Neighbor Embedding (tSNE
 plot(tTSNE.samples$Y, main="T-distributed Stochastic Neighbor Embedding (tSNE)\nSamples", col=cols, pch=16, cex=3)
 ```
 
-```{r Identification through MoNa MassBank}
+```{r Identification using MoNa MassBank}
 
 ### to be implemented
 identified <- jsonlite::fromJSON("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData%3Dq%3D%27name%3D%3D%22total+exact+mass%22+and+value+%3E%3D+245+and+value+%3C%3D+255%27+and+(tags.text%3D%3D%22LC-MS%22)+and+(metaData%3Dq%3D%27name%3D%3D%22ionization+mode%22+and+value%3D%3D%22positive%22%27)+and+(metaData%3Dq%3D%27name%3D%3D%22ms+level%22+and+value%3D%3D%22MS1%22%27)&size=30&text=")
 
-decoded.url <- jsonlite::fromJSON("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData=q='name=="total exact mass" and value >= 245 and value <= 255' and (tags.text=="LC-MS") and (metaData=q='name=="ionization mode" and value=="positive"') and (metaData=q='name=="ms level" and value=="MS1"')&size=30&text=")
+identified$metaData[[1]]$value
+identified$compound[[1]]$inchi
+identified$compound[[1]]$names
+identified$compound[[1]]$classification
+identified$compound[[1]]$metaData[[1]]
 
-utils::URLdecode() ###
+#decoded.url <- jsonlite::fromJSON("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData=q='name=="total exact mass" and value >= 245 and value <= 255' and (tags.text=="LC-MS") and (metaData=q='name=="ionization mode" and value=="positive"') and (metaData=q='name=="ms level" and value=="MS1"')&size=30&text=")
+
+#utils::URLdecode() ###
 ```
 
 Processing with peakML  
