@@ -640,18 +640,27 @@ dev.off()
 
 ```{r IPO / XCMS Parameter Optimization, eval=FALSE}
 peakpickingParameters <- IPO::getDefaultXcmsSetStartingParams('centWave')
-peakpickingParameters$step <- c(0.2, 0.3)
-peakpickingParameters$fwhm <- c(2, 60)
-peakpickingParameters$steps <- 10
+peakpickingParameters$min_peakwidth <- c(12,35)
+peakpickingParameters$max_peakwidth <- c(15, 65)
+peakpickingParameters$ppm <- c(10,40)
+peakpickingParameters$step <- c(0.1, 1)
+peakpickingParameters$snthresh <- c(10,80)
+peakpickingParameters$noise <- 5000
+peakpickingParameters$prefilter <- c(3,5)
+peakpickingParameters$value_of_prefilter <- c(3000,15000)
+peakpickingParameters$fitgauss <- TRUE
+
+peakpickingParameters$fwhm <- c(2,60)
 peakpickingParameters$sigma <- 0
-peakpickingParameters$max <- 0
+peakpickingParameters$steps <- c(1,10)
 peakpickingParameters$index <- FALSE
-data <- list.files("data_Kralova_ESI_minus", recursive = T, full.names = T)
+
+data <- list.files("data/Rik/ESI+/", recursive = T, full.names = T, pattern = ".mzML")
 optimized.xcmsSet <- system.time({
     resultPeakpicking <- optimizeXcmsSet(files = data, 
                        params = peakpickingParameters,
-                       nSlaves = (parallel::detectCores()) - 1,
-                       subdir = NULL)
+                       nSlaves = MulticoreParam(floor(detectCores() * 0.9)),
+                       subdir = "IPO_plots")
 })
 
 ```
