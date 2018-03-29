@@ -461,8 +461,8 @@ ionization_mode <- "positive"
 mz_tolerance <- 5
 
 for(i in 1:length(significant_features_mz)){
-  lower_bound <- significant_features_mz[i] - ppm
-  upper_bound <- significant_features_mz[i] + ppm
+  lower_bound <- significant_features_mz[i] - mz_tolerance
+  upper_bound <- significant_features_mz[i] + mz_tolerance
   identified[[i]] <- jsonlite::fromJSON(paste0("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData%3Dq%3D%27name%3D%3D%22total+exact+mass%22+and+value+%3E%3D+", lower_bound, "+and+value+%3C%3D+", upper_bound,
 "%27+and+(tags.text%3D%3D%22LC-MS%22)+and+(metaData%3Dq%3D%27name%3D%3D%22ionization+mode%22+and+value%3D%3D%22positive%22%27)+and+(metaData%3Dq%3D%27name%3D%3D%22ms+level%22+and+value%3D%3D%22MS1%22%27)&size=30&text="))
   Sys.sleep(time = 5) ### introduce a small pause between searches to avoid IP ban
@@ -471,6 +471,7 @@ for(i in 1:length(significant_features_mz)){
 identified[[1]]$metaData[[1]]$value
 identified[[1]]$compound[[1]]$inchi
 identified[[1]]$compound[[1]]$names
+lapply(identified[[1]]$compound, `[`, 4) ### name of all hits for the first m/z value
 identified[[1]]$compound[[1]]$classification
 identified[[1]]$compound[[1]]$metaData[[1]]
 
