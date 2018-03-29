@@ -56,7 +56,7 @@ if(!require(IPO)){biocLite("IPO", dependencies = TRUE)}
 
 necessary_packages <- c("devtools", "ROCS", "rJava", "plotly", "ptw", "tcltk2", "pca3d", "imager")
 
-pacman::p_load("Rserve", "som", "ROCR", "RJSONIO", "Cairo", "pheatmap", "lattice", "pROC", "ellipse", "scatterplot3d", "siggenes", "globaltest", "GlobalAncova", "Rgraphviz", "KEGGgraph", "SSPA", "sva", "car", "fitdistrplus")
+pacman::p_load("Rserve", "som", "ROCR", "RJSONIO", "Cairo", "pheatmap", "lattice", "pROC", "ellipse", "scatterplot3d", "siggenes", "globaltest", "GlobalAncova", "Rgraphviz", "KEGGgraph", "SSPA", "sva", "car", "fitdistrplus", "R.utils")
 
 install.necessary.packages <- function(pkg){
     new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
@@ -86,10 +86,7 @@ library(doParallel)
 library(RColorBrewer)
 
 library(plotly)
-
-#library(rJava)
-#.jinit ()
-#mzmatch.init()
+library(rJava)
 ```
 
 ```{r Load data, include=FALSE}
@@ -457,27 +454,43 @@ plot(tTSNE.features$Y, main = "T-distributed Stochastic Neighbor Embedding (tSNE
 plot(tTSNE.samples$Y, main="T-distributed Stochastic Neighbor Embedding (tSNE)\nSamples", col=cols, pch=16, cex=3)
 ```
 
-```{r Identification using MoNa MassBank}
+```{r Metabolite Identification using MassBank of North America}
+significant_features_mz <- c(902.433, 532.044, 122.456) ### this list comes from prior statistical analysis
+identified <- list(NULL)
+ionization_mode <- "positive"
+mz_tolerance <- 5
 
-### to be implemented
-identified <- jsonlite::fromJSON("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData%3Dq%3D%27name%3D%3D%22total+exact+mass%22+and+value+%3E%3D+245+and+value+%3C%3D+255%27+and+(tags.text%3D%3D%22LC-MS%22)+and+(metaData%3Dq%3D%27name%3D%3D%22ionization+mode%22+and+value%3D%3D%22positive%22%27)+and+(metaData%3Dq%3D%27name%3D%3D%22ms+level%22+and+value%3D%3D%22MS1%22%27)&size=30&text=")
+for(i in 1:length(significant_features_mz)){
+  lower_bound <- significant_features_mz[i] - ppm
+  upper_bound <- significant_features_mz[i] + ppm
+  identified[[i]] <- jsonlite::fromJSON(paste0("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData%3Dq%3D%27name%3D%3D%22total+exact+mass%22+and+value+%3E%3D+", lower_bound, "+and+value+%3C%3D+", upper_bound,
+"%27+and+(tags.text%3D%3D%22LC-MS%22)+and+(metaData%3Dq%3D%27name%3D%3D%22ionization+mode%22+and+value%3D%3D%22positive%22%27)+and+(metaData%3Dq%3D%27name%3D%3D%22ms+level%22+and+value%3D%3D%22MS1%22%27)&size=30&text="))
+  Sys.sleep(time = 5) ### introduce a small pause between searches to avoid IP ban
+}
 
-identified$metaData[[1]]$value
-identified$compound[[1]]$inchi
-identified$compound[[1]]$names
-identified$compound[[1]]$classification
-identified$compound[[1]]$metaData[[1]]
+identified[[1]]$metaData[[1]]$value
+identified[[1]]$compound[[1]]$inchi
+identified[[1]]$compound[[1]]$names
+identified[[1]]$compound[[1]]$classification
+identified[[1]]$compound[[1]]$metaData[[1]]
 
 #decoded.url <- jsonlite::fromJSON("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData=q='name=="total exact mass" and value >= 245 and value <= 255' and (tags.text=="LC-MS") and (metaData=q='name=="ionization mode" and value=="positive"') and (metaData=q='name=="ms level" and value=="MS1"')&size=30&text=")
 
-#utils::URLdecode() ###
+#utils::URLdecode()
 ```
 
 Processing with peakML  
 ```{r PeakML}
-#PeakML.xcms.write(xsg.gaus, filename = "xset.peakml")
-#PeakML.Viewer()
-###Load xset.peakml generated in the previous step
+source ("http://puma.ibls.gla.ac.uk/mzmatch.R/install_mzmatch.R")
+.jinit ()
+mzmatch.init()
+PeakML.xcms.write(xsg.gaus.neg, "xsg_gaus_neg.peakML")
+mzmatch.ipeak.sort.MetAssign(JHeapSize = 180000, i = "xsg_gaus_neg.peakML", o = "xcms_identified.peakml", 
+                             basepeaks = "xcms_basepeaks.peakml", ppm = 3, numDraws = 300, burnIn = 200, 
+                             adducts = "M+H,M+NH4", 
+                             dbIdentOut = "xcms_neg_Probabilistic_metabolite_annotation.csv", v = TRUE)
+
+### PeakML.Viewer() ### Load generated peakML files
 ```
 
 ```{r apLCMS pipeline}
