@@ -458,7 +458,7 @@ plot(tTSNE.samples$Y, main="T-distributed Stochastic Neighbor Embedding (tSNE)\n
 significant_features_mz <- c(902.433, 532.044, 122.456) ### this list comes from prior statistical analysis
 identified <- list(NULL)
 ionization_mode <- "positive"
-mz_tolerance <- 5
+mz_tolerance <- 0.5
 
 for(i in 1:length(significant_features_mz)){
   lower_bound <- significant_features_mz[i] - mz_tolerance
