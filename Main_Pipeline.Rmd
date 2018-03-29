@@ -484,8 +484,9 @@ Processing with peakML
 source ("http://puma.ibls.gla.ac.uk/mzmatch.R/install_mzmatch.R")
 .jinit ()
 mzmatch.init()
-PeakML.xcms.write(xsg.gaus.neg, "xsg_gaus_neg.peakML")
-mzmatch.ipeak.sort.MetAssign(JHeapSize = 180000, i = "xsg_gaus_neg.peakML", o = "xcms_identified.peakml", 
+PeakML.xcms.write(xsg.gaus.neg, "xsg_gaus_neg.peakml")
+mzmatch.init(version.1 = FALSE)
+mzmatch.ipeak.sort.MetAssign(JHeapSize = 180000, i = "xsg_gaus_neg.peakml", o = "xcms_identified.peakml", 
                              basepeaks = "xcms_basepeaks.peakml", ppm = 3, numDraws = 300, burnIn = 200, 
                              adducts = "M+H,M+NH4", 
                              dbIdentOut = "xcms_neg_Probabilistic_metabolite_annotation.csv", v = TRUE)
