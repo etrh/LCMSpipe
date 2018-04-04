@@ -29,6 +29,17 @@ Things to do:
 - Use `IPO` on the computing cluster and evaluate its results  
 - Isotope/adduct annotation using CAMERA; Compare `CAMERA` and `metaMS` 
 - Visualization of xsg.gaus using https://plot.ly/r/3d-surface-plots/#multiple-surfaces  
+
+https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/Metabomxtr_Vignette.pdf  
+https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/mixnorm_Vignette.pdf  
+https://www.bioconductor.org/packages/release/bioc/manuals/metabomxtr/man/metabomxtr.pdf  
+https://bioconductor.org/packages/release/bioc/vignettes/BiGGR/inst/doc/BiGGR.pdf  
+https://bioconductor.org/packages/release/bioc/vignettes/LOBSTAHS/inst/doc/LOBSTAHS.html  
+https://bioconductor.org/packages/release/bioc/vignettes/MAIT/inst/doc/MAIT_Vignette.pdf  
+https://bioconductor.org/packages/release/bioc/vignettes/metaMS/inst/doc/runLC.pdf  
+https://bioconductor.org/packages/release/bioc/vignettes/MWASTools/inst/doc/MWASTools.html  
+https://bioconductor.org/packages/release/bioc/html/PAPi.html  
+https://bioconductor.org/packages/release/bioc/vignettes/statTarget/inst/doc/statTarget.html  
   
   
   
@@ -56,7 +67,12 @@ if(!require(IPO)){biocLite("IPO", dependencies = TRUE)}
 
 necessary_packages <- c("devtools", "ROCS", "rJava", "plotly", "ptw", "tcltk2", "pca3d", "imager")
 
-pacman::p_load("Rserve", "som", "ROCR", "RJSONIO", "Cairo", "pheatmap", "lattice", "pROC", "ellipse", "scatterplot3d", "siggenes", "globaltest", "GlobalAncova", "Rgraphviz", "KEGGgraph", "SSPA", "sva", "car", "fitdistrplus", "R.utils")
+pacman::p_load("Rserve", "som", "ROCR", "RJSONIO", "Cairo", 
+               "pheatmap", "lattice", "pROC", "ellipse", 
+               "scatterplot3d", "siggenes", "globaltest", 
+               "GlobalAncova", "Rgraphviz", "KEGGgraph", 
+               "SSPA", "sva", "car", "fitdistrplus", 
+               "R.utils", "metabomxtr")
 
 install.necessary.packages <- function(pkg){
     new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
@@ -525,6 +541,15 @@ optimized.xcmsSet <- system.time({
                        nSlaves = 70,
                        subdir = "IPO_plots")
 })
+
+```
+
+```{r Mixture Model Normalization with metabomxtr}
+### https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/mixnorm_Vignette.pdf
+### We can use the peak intensity matrix that was generated for MetaboAnalyst
+### However, samples should be in rows and metabolites in columns
+### Two additional columns are needed to specify 'phenotype' group and 'batch' (run) number
+
 
 ```
 
