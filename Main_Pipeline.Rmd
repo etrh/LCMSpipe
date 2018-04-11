@@ -29,7 +29,9 @@ Things to do:
 - Use `IPO` on the computing cluster and evaluate its results  
 - Isotope/adduct annotation using CAMERA; Compare `CAMERA` and `metaMS` 
 - Visualization of xsg.gaus using https://plot.ly/r/3d-surface-plots/#multiple-surfaces  
-
+- `IPO` is computationally-expensive for large datasets, `MPI` packages/approaches can be useful (e.g. `pbdMPI`, `Rmpi`) (https://en.wikipedia.org/wiki/Programming_with_Big_Data_in_R)  
+  
+  
 https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/Metabomxtr_Vignette.pdf  
 https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/mixnorm_Vignette.pdf  
 https://www.bioconductor.org/packages/release/bioc/manuals/metabomxtr/man/metabomxtr.pdf  
