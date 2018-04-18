@@ -55,6 +55,7 @@ biocLite()
 tryCatch({biocLite("BiocUpgrade")}, error=function(e){print(paste(conditionMessage(e)))})
 biocValid()
 
+devtools::install_git("https://gitlab.com/R_packages/massageR.git")
 devtools::install_github("stanstrup/QC4Metabolomics/MetabolomiQCsR")
 
 library(MSnbase)
