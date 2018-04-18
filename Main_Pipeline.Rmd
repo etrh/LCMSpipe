@@ -35,7 +35,7 @@ pacman::p_load("Rserve", "som", "ROCR", "RJSONIO", "Cairo",
                "scatterplot3d", "siggenes", "globaltest", 
                "GlobalAncova", "Rgraphviz", "KEGGgraph", 
                "SSPA", "sva", "car", "fitdistrplus", 
-               "R.utils", "metabomxtr")
+               "R.utils", "metabomxtr", "rvest")
 
 install.necessary.packages <- function(pkg){
     new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
@@ -54,6 +54,8 @@ source("https://bioconductor.org/biocLite.R")
 biocLite()
 tryCatch({biocLite("BiocUpgrade")}, error=function(e){print(paste(conditionMessage(e)))})
 biocValid()
+
+devtools::install_github("stanstrup/QC4Metabolomics/MetabolomiQCsR")
 
 library(MSnbase)
 library(xcms)
@@ -461,6 +463,26 @@ identified[[1]]$compound[[1]]$metaData[[1]]
 #decoded.url <- jsonlite::fromJSON("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData=q='name=="total exact mass" and value >= 245 and value <= 255' and (tags.text=="LC-MS") and (metaData=q='name=="ionization mode" and value=="positive"') and (metaData=q='name=="ms level" and value=="MS1"')&size=30&text=")
 
 #utils::URLdecode()
+```
+
+```{r Metabolite identification using Metlin}
+significant_features_mz <- c(418.2931, 540.29)
+mz_tolerance_ppm <- 5
+
+### Charge is ESI+
+### Adduct: M+H
+
+metlin_table <- list(NULL)
+metlin_res <- list(NULL)
+metlin_res_tbl <- list(NULL)
+
+for(i in length(significant_features_mz)){
+  metlin_table[[i]] <- xml2::read_html(paste0('https://metlin.scripps.edu/simple_search_result.php?mass_mid=', significant_features_mz[i],
+       '&mass_tol=', mz_tolerance_ppm, '&mass_mode=1&AminoAcid=add&toxinEPA=add&adducts=M%2BH'))
+  metlin_res[[i]] <- rvest::html_nodes(metlin_table[[i]], "table")
+  metlin_res_tbl[[i]] <- rvest::html_table(metlin_res[[i]][1], fill = TRUE)
+  print(head(metlin_res_tbl[[i]][[1]]))
+}
 ```
 
 Processing with peakML  
