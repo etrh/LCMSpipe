@@ -4,45 +4,6 @@ author: "Ashkan Zareie"
 date: "August-September 2017"
 output: html_document
 ---
-
-Currently the pipeline encompasses the following steps:  
-- Convert .d folders (Agilent proprietary format) to mzML using MSConvert (ProteoWizard toolbox)
-- Use XCMS to analyze the data (pre-processing and univariate statistical analysis)  
-- Use MetaboAnalyst for multivariate data analysis  
-  
-  
-  
-Help/Guides:  
-- https://www.bioconductor.org/packages/3.7/data/experiment/vignettes/mtbls2/inst/doc/MTBLS2.html  
-- https://bioconductor.org/packages/release/bioc/vignettes/xcms/inst/doc/xcms.html  
-- https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/CAMERA.pdf  
-- https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/IsotopeDetectionVignette.pdf  
-- https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/compoundQuantilesVignette.pdf  
-  
-  
-  
-Things to do:  
-- Add the multivariate statistical analysis approach to this file (using `MetaboAnalystR` package) 
-- Implement tSNE and ICA  
-- Try `metabomxtr`, `mzmatch.R`, `mz.unity`, and `apLCMS` packages 
-- MetFrag using MS/MS data (we do not have any MS/MS data yet...)  
-- Use `IPO` on the computing cluster and evaluate its results  
-- Isotope/adduct annotation using CAMERA; Compare `CAMERA` and `metaMS` 
-- Visualization of xsg.gaus using https://plot.ly/r/3d-surface-plots/#multiple-surfaces  
-- `IPO` is computationally-expensive for large datasets, `MPI` packages/approaches can be useful (e.g. `pbdMPI`, `Rmpi`) (https://en.wikipedia.org/wiki/Programming_with_Big_Data_in_R)  
-  
-  
-https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/Metabomxtr_Vignette.pdf  
-https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/mixnorm_Vignette.pdf  
-https://www.bioconductor.org/packages/release/bioc/manuals/metabomxtr/man/metabomxtr.pdf  
-https://bioconductor.org/packages/release/bioc/vignettes/BiGGR/inst/doc/BiGGR.pdf  
-https://bioconductor.org/packages/release/bioc/vignettes/LOBSTAHS/inst/doc/LOBSTAHS.html  
-https://bioconductor.org/packages/release/bioc/vignettes/MAIT/inst/doc/MAIT_Vignette.pdf  
-https://bioconductor.org/packages/release/bioc/vignettes/metaMS/inst/doc/runLC.pdf  
-https://bioconductor.org/packages/release/bioc/vignettes/MWASTools/inst/doc/MWASTools.html  
-https://bioconductor.org/packages/release/bioc/html/PAPi.html  
-https://bioconductor.org/packages/release/bioc/vignettes/statTarget/inst/doc/statTarget.html  
-  
   
   
 On UNIX-based systems you will first need to ensure that the following requirements are installed:  
@@ -105,6 +66,10 @@ library(RColorBrewer)
 
 library(plotly)
 library(rJava)
+```
+
+```{r Convert data}
+'msconvert *.d -o mzML'
 ```
 
 ```{r Load data, include=FALSE}
