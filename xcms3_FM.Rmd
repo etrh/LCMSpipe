@@ -1,0 +1,602 @@
+---
+title: "Pipeline for Analysis of Metabolomics Data in R"
+author: "Ashkan Zareie"
+date: "August-September 2017"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+Currently the pipeline encompasses the following steps:  
+- Convert .d folders (Agilent proprietary format) to mzXML or mzML (preferred) using MSConvert from the ProteoWizard toolbox  
+- Use XCMS to analyze the data (pre-processing and univariate statistical analysis)  
+- Use MetaboAnalyst.ca for multivariate data analysis  
+  
+  
+Soon to be added:  
+- Implement MetaboAnalyst in R  
+- Isotope/adduct annotation using CAMERA  
+- https://www.bioconductor.org/packages/3.7/data/experiment/vignettes/mtbls2/inst/doc/MTBLS2.html  
+- https://bioconductor.org/packages/release/bioc/vignettes/xcms/inst/doc/xcms.html  
+- https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/CAMERA.pdf  
+- https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/IsotopeDetectionVignette.pdf  
+- https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/compoundQuantilesVignette.pdf  
+- Visualization of xsg.gaus using https://plot.ly/r/3d-surface-plots/#multiple-surfaces  
+  
+  
+Things to do:  
+- Add the multivariate statistical analysis approach to this file (using `MetaboAnalystR` package)  
+- Implement tSNE and ICA  
+- Check whether `metabomxtr` package can be useful  
+- Try the `mz.unity` package  (https://github.com/nathaniel-mahieu/mz.unity)
+- MetFrag using MS/MS data  
+- Use `IPO` on the computing cluster and evaluate its results  
+- Compare `CAMERA` to `metaMS`  
+  
+  
+See these papers for some discussion on file formats:  
+- https://doi.org/10.1016/j.jasms.2010.06.014  
+- https://dx.doi.org/10.1007%2F978-1-60761-444-9_22  
+- https://dx.doi.org/10.1074%2Fmcp.R110.000133  
+  
+  
+On UNIX-based systems you will first need to ensure the following are installed:  
+  netcdf-bin  
+  libnetcdf-dev  
+  gfortran  
+  libblas-dev  
+  liblapack-dev  
+  pcre  
+  lzma  
+  bz2  
+  gtk  
+  jre/jvm  
+  
+  
+```{r Frantisek's version}
+
+library(xcms)
+library(RColorBrewer)
+
+files.path <- getwd() #actual working directory
+#only positive ions polarity
+mzml.files <- list.files(files.path, recursive = T, full.names = T, pattern="\\+\\.mzML")
+mzml.files
+
+#exclude washing and blank samples
+mzml.files <- mzml.files[-c(14,15,16,30)]
+mzml.files
+
+#fill sample group!
+pd <- data.frame(sample_name = sub(basename(mzml.files), pattern = "\\+\\.mzML",
+                   replacement = "", fixed = TRUE),
+         sample_group = c(rep("14days", 13), rep("28days", 13)),
+         stringsAsFactors = FALSE) 
+
+raw_data <- readMSData(files = mzml.files, pdata = new("NAnnotatedDataFrame", pd), mode = "onDisk")
+
+head(rtime(raw_data)) 
+mzs <- mz(raw_data)
+
+## Split the list by file
+mzs_by_file <- split(mzs, f = fromFile(raw_data))
+length(mzs_by_file) 
+
+## Get the base peak chromatograms. This reads data from the files.
+bpis <- chromatogram(raw_data, aggregationFun = "max")
+tic <- chromatogram(raw_data, aggregationFun = "sum")
+## Define colors for the two groups
+group_colors <- brewer.pal(3, "Set1")[1:2]
+names(group_colors) <- c("14days", "28days")
+
+## Plot all chromatograms.
+dir.create("QC")
+pdf("QC/01-chromatograms.pdf")
+plot(bpis, col = group_colors[raw_data$sample_group], main = "Base Peak Chromatogram (BPC)")
+plot(tic, col = group_colors[raw_data$sample_group], main = "Total Ion Current (TIC)")
+dev.off()
+
+
+## Get the total ion current by file
+tc <- split(tic(raw_data), f = fromFile(raw_data))
+pdf("QC/02-totalIonCurrent.pdf")
+boxplot(tc, col = group_colors[raw_data$sample_group],
+    ylab = "intensity", main = "Total ion current") 
+dev.off()
+
+#peak of interest
+## Define the rt and m/z range of the peak area
+#rtr <- c(1100,1500) #c(2700, 2900)
+#mzr <- c(806, 810)
+rtr <- c(2*60,24*60) #c(2700, 2900)
+mzr <- c(292.1, 292.3)
+
+chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
+pdf("QC/03-eicPeakPOI.pdf")
+plot(chr_raw, col = group_colors[chr_raw$sample_group]) 
+dev.off()
+
+#snthresh = 40, prefilter = c(3, 50000)
+cwp <- CentWaveParam(peakwidth = c(3, 22), noise = 20, snthresh = 1000, ppm = 30, prefilter = c(3, 200))
+xdata <- findChromPeaks(raw_data, param = cwp)
+head(chromPeaks(xdata)) 
+
+#The returned matrix provides the m/z and retention time range for each identified chromatographic peak as well as the integrated signal intensity (“into”) and the maximal peak intensitity (“maxo”). Column “sample” contains the index of the sample in the object/experiment in which the peak was identified.
+
+
+### per file (sample) statistics
+summary_fun <- function(z) {
+    c(peak_count = nrow(z), rt = quantile(z[, "rtmax"] - z[, "rtmin"]))
+}
+T <- lapply(split.data.frame(chromPeaks(xdata),
+                 f = chromPeaks(xdata)[, "sample"]),
+        FUN = summary_fun)
+T <- do.call(rbind, T)
+rownames(T) <- basename(fileNames(xdata))
+
+write.csv(T, "QC/03-stats.csv")
+
+pdf("QC/04-chromPeaks.pdf")
+for(ifile in 1:nrow(xdata))
+{
+	plotChromPeaks(xdata, file = ifile)
+}
+dev.off()
+
+#plot the frequency of identified peaks per file along the retention time axis
+pdf("QC/05-peakFreq.pdf")
+plotChromPeakImage(xdata) 
+dev.off()
+
+pdf("QC/06-peaksPOI.pdf")
+plot(chr_raw, col = group_colors[chr_raw$sample_group], lwd = 2)
+highlightChromPeaks(xdata, border = group_colors[chr_raw$sample_group], lty = 3, rt = rtr, mz = mzr) 
+dev.off()
+
+#peak intensities
+pdf("QC/07-peakIntensities.pdf")
+## Extract a list of per-sample peak intensities (in log2 scale)
+ints <- split(log2(chromPeaks(xdata)[, "into"]),
+          f = chromPeaks(xdata)[, "sample"])
+boxplot(ints, varwidth = TRUE, col = group_colors[xdata$sample_group],
+    ylab = expression(log[2]~intensity), main = "Peak intensities")
+grid(nx = NA, ny = NULL) 
+dev.off()
+
+
+#make experiments with different bw value
+## Extract and plot the chromatograms
+pdf("QC/08-checkBWParametrs.pdf")
+chr_mzr <- chromatogram(xdata, mz = mzr, rt = rtr)
+par(mfrow = c(3, 1), mar = c(1, 4, 1, 0.5))
+cols <- group_colors[chr_mzr$sample_group]
+plot(chr_mzr, col = cols, xaxt = "n", xlab = "")
+## Highlight the detected peaks in that region.
+highlightChromPeaks(xdata, mz = mzr, col = cols, type = "point", pch = 16)
+## Define the parameters for the peak density method
+pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+            minFraction = 0.4, bw = 30)
+par(mar = c(4, 4, 1, 0.5))
+plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
+             pch = 16, xlim = rtr)
+## Use a different bw
+pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+            minFraction = 0.4, bw = 20)
+plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
+             pch = 16, xlim = rtr) 
+dev.off()
+
+
+
+## Correspondence: group peaks across samples.
+pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+            minFraction = 0.4, bw = 20)
+xdata <- groupChromPeaks(xdata, param = pdp)
+
+## Now the retention time correction.
+
+#pgp <- PeakGroupsParam(minFraction = 0.5)
+#smooth(pgp) <- "linear"
+pgp <- PeakGroupsParam(minFraction = 0.4, span = 0.6)
+## Get the peak groups that would be used for alignment.
+xdata <- adjustRtime(xdata, param = pgp)
+#xdata <- adjustRtime(xdata, param = ObiwarpParam(binSize = 0.6))
+
+#adjustRtime-peakGroups
+
+#pdf("QC/09-rtcorTest.pdf")
+### Plot the difference of adjusted to raw retention time.
+#plotAdjustedRtime(xdata, col = group_colors[xdata$sample_group],
+#          peakGroupsCol = "grey", peakGroupsPch = 1) 
+#dev.off()
+
+## Get the base peak chromatograms.
+pdf("QC/10-bpis_retcor.pdf")
+bpis_adj <- chromatogram(xdata, aggregationFun = "max")
+par(mfrow = c(2, 1), mar = c(4.5, 4.2, 1, 0.5))
+plot(bpis_adj, col = group_colors[bpis_adj$sample_group])
+## Plot also the difference of adjusted to raw retention time.
+plotAdjustedRtime(xdata, col = group_colors[xdata$sample_group])
+dev.off()
+
+#try diferent setting
+#xdata <- dropAdjustedRtime(xdata)
+#pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+#            minFraction = 0.4, bw = 20)
+##xdata <- groupChromPeaks(xdata, param = pdp)
+#pgp <- PeakGroupsParam(minFraction = 0.4, span = 0.6)
+#smooth(pgp) <- "linear"
+#xdata <- adjustRtime(xdata, param = pgp)
+
+#xdata <- adjustRtime(xdata, param = ObiwarpParam(binSize = 0.6))
+#pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+#            minFraction = 0.4, bw = 20)
+#xdata <- groupChromPeaks(xdata, param = pdp)
+#pdf("QC/10-bpis_retcor_5.pdf")
+#bpis_adj <- chromatogram(xdata, aggregationFun = "max")
+#par(mfrow = c(2, 1), mar = c(4.5, 4.2, 1, 0.5))
+#plot(bpis_adj, col = group_colors[bpis_adj$sample_group])
+### Plot also the difference of adjusted to raw retention time.
+#plotAdjustedRtime(xdata, col = group_colors[xdata$sample_group])
+#dev.off()
+
+pdf("QC/11-evaltest.pdf")
+par(mfrow = c(2, 1))
+## Plot the raw data
+plot(chr_raw, col = group_colors[chr_raw$sample_group])
+
+## Extract the chromatogram from the adjusted object
+chr_adj <- chromatogram(xdata, rt = rtr, mz = mzr)
+plot(chr_adj, col = group_colors[chr_raw$sample_group])
+dev.off()
+
+xdata <- groupChromPeaks(xdata, param = pdp)
+xdata <- fillChromPeaks(xdata)
+
+#install new verison of neumanns xcms3 (at least 3.1.2)
+intensityMatrix  <- featureValues(xdata, method = "medret", value = "into")
+#rownames(intensityMatrix) <- groupnames(xdata, mzdec=5, rtdec=5)
+
+intensityMatrix <- rbind(group = phenoData(xdata)@data$sample_group, intensityMatrix)
+write.csv(intensityMatrix, file='QC/PeakIntensityMatrix_for_MetaboAnalyst.csv')
+
+
+#OR because groupval support only XcmsSet (not XcmsNExp), we convert XcmsNExp to XcmsSet
+sampleNames(xdata) <- basename(mzml.files)
+xdata_old <- as(xdata, "xcmsSet")
+sampclass(xdata_old) <- as.factor(c(rep("14days", 13), rep("28days", 13)))
+
+## Extract the feature definitions
+#featureDefinitions(xdata)
+
+## Extract the into column for each feature.
+#head(featureValues(xdata, value = "into"))
+
+#xdata_old <- as(xdata, "xcmsSet")
+#sampclass(xdata_old) <- as.factor(c(rep("14days", 16), rep("28days", 14)))
+
+#xdata_old <- fillPeaks(xdata_old)
+#rep.gaus <- diffreport(object = xdata_old, 
+#                       class1 = levels(sampclass(xdata_old))[1], 
+#                       class2 = levels(sampclass(xdata_old))[2],
+#                       filebase = "diffreport", eicmax = 20, 
+#                       sortpval = TRUE,
+#                       metlin = 0.5, mzdec = 4)
+
+#metaboAnalyst
+#– Features (peaks) are in rows
+#– Samples are in  columns
+#– Group labels must be added by using 'phenoData'
+#- If there are duplicated mzRT values in the rows of the generated peak intensity matrix, MetaboAnalyst will result in an error. To fix this error, simply distinguish repeated values by adding 'A', 'B', 'C', etc. to them. For example, if you have the mzRT feature 54.04/1499.3 twice in the resulting table, simply change the second one to 54.04/1499.3A
+dat <- groupval(xdata_old, method = "medret", value = "into")
+rownames(dat) <- groupnames(xdata_old, mzdec=5, rtdec=5)
+dat <- rbind(group = as.character(phenoData(xdata_old)$class), dat)
+write.csv(dat, file='QC/PeakIntensityMatrix_for_MetaboAnalyst.csv')
+#head(dat)
+#tail(dat)
+
+```
+
+```{r Isotope and Adduct Detection --- UNDER DEVELOPMENT | Be cautious}
+library(CAMERA)
+an <- xsAnnotate(xdata_old, polarity="positive") # constructor; extracts peak table
+an <- groupFWHM(an, perfwhm = 1) # group peaks by retention time
+#an <- findIsotopesWithValidation(object = an, ppm = 5, mzabs = 0.01, intval="intb", maxcharge = 3)
+peakTable <- getPeaklist(an) # extract peak list
+head(peakTable)
+tail(peakTable)
+an <- groupCorr(an)
+anF <- findIsotopes(an)
+anF <- findAdducts(anF, polarity="positive")
+write.csv(getPeaklist(anF),file="isotope_adduct_prediction.csv")
+getPeaklist(anF)
+```
+
+```{r Frantisek's metaboanalystR}
+#install MetaboAnalystR
+#library(devtools)
+#devtools::install_github("xia-lab/MetaboAnalystR", build_vignettes=TRUE)
+
+#Statistical module - introduction
+#https://github.com/xia-lab/MetaboAnalystR/blob/master/vignettes/Statistical_Analysis_Module.Rmd
+library(MetaboAnalystR)
+#The best way How to build the pipilene is to visit a http://www.metaboanalyst.ca and copy&past the R Command History from a right window
+
+#The standard workflow for statistical analysis is as follows:
+#Processed metabolomic data -> Univariate analysis -> Multivariate analysis -> Biological interpretation
+
+#2. Univariate Methods
+#pktable - peak intensity table, 
+mSet<-InitDataObjects(data.type = "pktable", anal.type = "stat", paired = FALSE)
+#mSet<-Read.TextData(mSet, "http://www.metaboanalyst.ca/MetaboAnalyst/resources/data/human_cachexia.csv", "rowu", "disc");
+#colu - samples in columns and unpaired, disc - discrete
+mSet<-Read.TextData(mSetObj = mSet, filePath = "QC/PeakIntensityMatrix_for_MetaboAnalyst.csv", format = "colu", lbl.type = "disc")
+#performs a basic sanity check of the uploaded content
+mSet<-SanityCheckData(mSet)
+#replace zero/misiing values by half ot the smallest positive value in the original dataset
+mSet<-ReplaceMin(mSet)
+
+# The purpose of the data filtering is to identify and remove variables that are unlikely to be of use when modeling the data. No phenotype information are used in the filtering process, so the result can be used with any downstream analysis. This step is strongly recommended for untargeted metabolomics datasets (i.e. spectral binning data, peak lists) with large number of variables, many of them are from baseline noises. Filtering can usually improve the results. For details, please refer to the paper by Hackstadt, et al.
+
+#Non-informative variables can be characterized in three groups: 1) variables of very small values (close to baseline or detection limit) - these variables can be detected using mean or median; 2) variables that are near-constant values throughout the experiment conditions (housekeeping or homeostasis) - these variables can be detected using standard deviation (SD); or the robust estimate such as interquantile range (IQR); and 3) variables that show low repeatability - this can be measured using QC samples using the relative standard deviation(RSD = SD/mean). Features with high percent RSD should be removed from the subsequent analysis (the suggested threshold is 20% for LC-MS and 30% for GC-MS). For data filtering based on the first two categories, the following empirical rules are applied during data filtering:
+
+#    Less than 250 variables: 5% will be filtered;
+#    Between 250 - 500 variables: 10% will be filtered;
+#    Between 500 - 1000 variables: 25% will be filtered;
+#    Over 1000 variables: 40% will be filtered;
+
+#This is a function that filters the dataset, dependent on the user-specified method for filtering. The function applies a filtering method, ranks the variables within the dataset, and removes variables based on its rank. The final dataset should contain no more than than 5000 variables for effective computing.
+
+#iqr 'inter quantile range, qcFilter = "F" non QC based filtering, rsd - relative standard deviation cutoff (only for qcFilter = "T")
+mSet<-FilterVariable(mSet, filter = "iqr", qcFilter = "F",  rsd =  25)
+
+#ratio and ratioNUm are relevant only for biomarker analysis
+#mSet<-Normalization(mSet, rowNorm = "QuantileNorm", transNorm = "LogNorm", scaleNorm = "ParetoNorm", ref = "83S-A0955_m_WT_FreezinExperiment2_14days_ESI", ratio=FALSE, ratioNum=20)
+mSet<-Normalization(mSet, "CompNorm", "LogNorm", "ParetoNorm", "M292.19902T828.94632", ratio=FALSE, ratioNum=20)
+normalizedXdata <- mSet$dataSet$norm
+
+#####plot 
+
+mSet<-PlotNormSummary(mSet, "norm_0_", format ="png", dpi=72, width=NA)
+mSet<-PlotSampleNormSummary(mSet, "snorm_0_", format = "png", dpi=72, width=NA)
+
+#fold change analysis
+#cmp.type - 0 for group 1 minus group 2, and 1 for group 1 minus group 2
+mSet<-FC.Anal.unpaired(mSet, fc.thresh = 2.0, cmp.type = 0)
+mSet<-PlotFC(mSet, "fc_0_", "png", 72, width=NA)
+fctable <- mSet$analSet$fc
+
+#t-test
+#nonpar - nonparametric test
+mSet<-Ttests.Anal(mSet, nonpar = F, threshp = 0.05, paired = FALSE, equal.var = TRUE)
+mSet<-PlotTT(mSet, "tt_2_", "png", 72, width=NA)
+tttable <- mSet$analSet$tt
+
+#pca
+mSet<-PlotPCAPairSummary(mSet, "pca_pair_2_", "png", 72, width=NA, 5)
+mSet<-PlotPCAScree(mSet, "pca_scree_1_", "png", 72, width=NA, 5)
+
+mSet<-PlotPCA2DScore(mSet, "pca_score2d_1_", "png", 72, width=NA, 1,2,0.95,1,0)
+
+ 	mSet<-PlotHeatMap(mSet, "heatmap_1_", "png", 72, width=NA, "norm", "row", "euclidean", "ward.D","bwm", "overview", T, T, NA, T, F)
+ 	
+ 	mSet<-PlotPCA3DScore(mSet, "pca_score3d_1_", "json", 1,2,3)
+```
+
+```{r batch correction}
+#library(devtools)
+#install_github("rwehrens/BatchCorrMetabolomics")
+library(BatchCorrMetabolomics)
+batchData <- read.csv("PeakIntensityMatrix_for_MetaboAnalyst.csv", row.names = 1, stringsAsFactors = FALSE)
+batchData <- normalizedXdata
+
+#qcInd <- c(14,30)
+#without qcs
+qcInd <- 1:nrow(batchData)
+#batchInd <- as.factor(c(rep("14days", 13), rep("28days", 14)))
+#batchInd <- as.factor(unlist(batchData[1,]))
+batchInd <- as.factor(phenoData(xdata)@data$sample_group)
+#batchData <- batchData[-1,]
+sampleOrder <-1:nrow(batchData)#c(1:16, 1:14)
+oneline <- doBC(as.numeric(batchData[2,]), ref.idx = qcInd, batch.idx = batchInd, seq.idx = sampleOrder, minBsamp = 1)
+
+numBatchData <- data.matrix(batchData)
+allRes <- apply(numBatchData, MARGIN = 2, doBC, ref.idx = qcInd, batch.idx = batchInd, seq.idx = sampleOrder, minBsamp = 1)
+
+allRes <- t(apply(numBatchData, MARGIN = 1, function(x){doBC(x, ref.idx = qcInd, batch.idx = batchInd, seq.idx = sampleOrder, minBsamp = 1)}))
+                #, 
+                #result = c("correctedX", "corrections"), method = c("lm", "rlm", "tobit"),
+                #correctionFormula = formula("X ~ S * B"), minBsamp = 4, imputeVal = NULL)
+
+
+#newNumBatchData <- rbind(doBC(numBatchData[1,], ref.idx = qcInd, batch.idx = batchInd, seq.idx = sampleOrder, minBsamp = 1))
+#for(i in 2:nrow(numBatchData))
+#{
+#  newNumBatchData <- rbind(newNumBatchData, doBC(numBatchData[i,], ref.idx = qcInd, batch.idx = batchInd, seq.idx = sampleOrder, minBsamp = 1))
+#}
+
+```
+
+```{r}
+#batch graphs
+library(ggplot2)
+library(stringr)
+scode <- rep("nonref", 26)
+for(i in 1:length(scode))
+{
+  scode[i] <-  str_extract(string = rownames(batchData)[i], pattern = "[^_]+")
+}
+dataMeta <- data.frame(Batch = batchInd, SeqNr = qcInd, SCode = scode)
+
+xx <- t(numBatchData)
+
+pdf("pca_batch.pdf")
+par(mfrow = c(1,2))
+huhnPCA <- evaluateCorrection(numBatchData, dataMeta, what = "PCA", plot = TRUE,  legend.loc = "bottomright")
+title(main = paste("Interbatch distance:", round(huhnPCA, 3)))
+
+huhnPCA2 <- evaluateCorrection((allRes), dataMeta, what = "PCA", plot = TRUE,  legend.loc = "bottomright")
+title(main = paste("Interbatch distance:", round(huhnPCA2, 3)))
+dev.off()
+
+
+origpca <- prcomp(numBatchData, scale. = TRUE)
+palette(rainbow(2)) 
+palette("default")
+pdf("new_pca.pdf", width = 10)
+
+par(mfrow=c(1,2))
+
+plot(origpca$x, col = dataMeta$Batch,  pch = as.numeric(as.factor(scode)))
+legend("topleft", c("freezing14", "freezing28"), col = c("black", "red"), lty=c(1,1))
+title("Original dataset - pca")
+
+newpca <- prcomp(allRes, scale. = TRUE)
+plot(newpca$x, col = dataMeta$Batch,  pch = as.numeric(as.factor(scode)))
+legend("topleft", c("freezing14", "freezing28"), col = c("black", "red"), lty=c(1,1))
+title("BATCH - pca")
+
+dev.off()
+
+
+palette(topo.colors(13))
+
+library(RColorBrewer)
+n <- 100
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+col_vector <- c('#000000', col_vector)
+#pie(rep(1,n), col=sample(col_vector, n))
+
+#palette("default")
+pdf("new_pca2.pdf", width = 10)
+
+par(mfrow=c(1,2))
+
+plot(origpca$x, col = col_vector[as.numeric(as.factor(scode))],  pch = as.numeric(dataMeta$Batch))
+legend("topleft", c("freezing14", "freezing28"), col = c("black", "red"), lty=c(0,0),pch=c(1,2))
+title("Original dataset - pca")
+
+newpca <- prcomp(allRes, scale. = TRUE)
+plot(newpca$x, col = col_vector[as.numeric(as.factor(scode))],  pch = as.numeric(dataMeta$Batch))
+legend("topleft", c("freezing14", "freezing28"), col = c("black", "red"), lty=c(0,0), pch=c(1,2))
+title("BATCH - pca")
+
+dev.off()
+
+#oldpca <- prcomp(t(numBatchData), scale. = TRUE)
+#pca2plot <- as.data.frame(oldpca$x)
+#pca2plot <- cbind(pca2plot, batch = batchInd)
+
+#batchpca <- prcomp(t(allRes), scale. = TRUE)
+#batch2plot <- as.data.frame(batchpca$x)
+#batch2plot <- cbind(batch2plot, batch = batchInd)
+
+##par(mfrow=c(2,1))
+#pdf("oldpca.pdf")
+#ggplot(pca2plot, aes(x=PC1, y=PC2, color=batch)) + geom_point()
+#ggplot(batch2plot, aes(x=PC1, y=PC2, color=batch)) + geom_point()
+#dev.off()
+
+#huhnPCA <- evaluateCorrection(allRes, allRes, what = "PCA",
+#plot = TRUE, legend.loc = "bottomright")
+```
+
+
+```{r}
+#fig1
+
+huhnDuplo.metab <- evaluateDuplos(set.1, set.1.Y, plot = FALSE, 
+perMetabolite = TRUE)
+
+pdf("test.pdf")
+xyranges <- range(c(huhnDuplo.metab, huhnDuplo.metabA), na.rm = TRUE)
+plot(huhnDuplo.metab, huhnDuplo.metabA, 
+     main = "Metabolite repeatabilities",
+     xlim = xyranges, ylim=xyranges,
+     xlab = "Uncorrected data", ylab = "Corrected data (Q)")
+abline(0, 1, col = "gray")
+dev.off()
+```
+
+
+
+```{r}
+newsc <- rep("noref", 30)
+for(i in 1:nrow(dataMeta))
+{
+  newsc[i] <- substr(rownames(dataMeta)[i],1,10)
+}
+
+dataMeta$SCode <- as.factor(newsc)
+
+
+
+#figure 3 - repeatabilities for individual metabolites
+duplo.metabCOR <- evaluateDuplos(t(allRes), dataMeta, plot = FALSE, perMetabolite = TRUE)
+
+duplo.metab <- evaluateDuplos(t(numBatchData), dataMeta, plot = FALSE, perMetabolite = TRUE)
+
+pdf("duplomet.pdf")
+xyranges <- range(c(duplo.metab, duplo.metabCOR), na.rm = TRUE)
+plot(duplo.metab, duplo.metabCOR, 
+     main = "Metabolite repeatabilities",
+     xlim = xyranges, ylim=xyranges,
+     xlab = "Uncorrected data", ylab = "Corrected data (Q)")
+abline(0, 1, col = "gray")
+dev.off()
+
+```
+
+
+```{r}
+
+results <- matrix(0, 2, 2)
+colnames(results) <- c("PCA", "duplo")
+rownames(results) <- c("Nocorrection", "batch")
+results["Nocorrection", "PCA"] <- evaluateCorrection(t(numBatchData), dataMeta, what = "PCA", plot = FALSE)
+
+results["batch", "PCA"] <- evaluateCorrection(t(allRes), dataMeta, what = "PCA", plot = FALSE)
+
+results["Nocorrection", "duplo"] <- evaluateCorrection(t(numBatchData), dataMeta, what = "duplo", plot = FALSE)
+
+results["batch", "duplo"] <- evaluateCorrection(t(allRes), dataMeta, what = "duplo", plot = FALSE)
+
+results.label <- factor(c("No correction", "only batch correction"))
+
+pdf("onlybatchcor.pdf")
+plot(results, main = "Data set I", 
+     xlab = "Interbatch distance", ylab = "Repeatability",
+     col = as.integer(results.label))
+text(results, labels = rownames(results), 
+     pos = ifelse(results.label == "N", 2, 4),
+col = as.integer(results.label))
+dev.off()
+
+```
+
+```{r Metabolite Identification using MassBank of North America}
+significant_features_mz <- c(902.433, 532.044, 122.456) ### this list comes from prior statistical analysis
+identified <- list(NULL)
+ionization_mode <- "positive"
+mz_tolerance <- 15
+
+for(i in 1:length(significant_features_mz)){
+  lower_bound <- significant_features_mz[i] - mz_tolerance
+  upper_bound <- significant_features_mz[i] + mz_tolerance
+  identified[[i]] <- jsonlite::fromJSON(paste0("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData%3Dq%3D%27name%3D%3D%22total+exact+mass%22+and+value+%3E%3D+", lower_bound, "+and+value+%3C%3D+", upper_bound,
+"%27+and+(tags.text%3D%3D%22LC-MS%22)+and+(metaData%3Dq%3D%27name%3D%3D%22ionization+mode%22+and+value%3D%3D%22positive%22%27)+and+(metaData%3Dq%3D%27name%3D%3D%22ms+level%22+and+value%3D%3D%22MS1%22%27)&size=30&text="))
+  #Sys.sleep(time = 5) ### introduce a small pause between searches to avoid IP ban
+}
+
+identified[[1]]$metaData[[1]]$value
+identified[[1]]$compound[[1]]$inchi
+identified[[1]]$compound[[1]]$names
+lapply(identified[[1]]$compound, `[`, 4) ### name of all hits for the first m/z value
+identified[[1]]$compound[[1]]$classification
+identified[[1]]$compound[[1]]$metaData[[1]]
+
+#decoded.url <- jsonlite::fromJSON("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData=q='name=="total exact mass" and value >= 245 and value <= 255' and (tags.text=="LC-MS") and (metaData=q='name=="ionization mode" and value=="positive"') and (metaData=q='name=="ms level" and value=="MS1"')&size=30&text=")
+
+#utils::URLdecode()
+```
