@@ -35,7 +35,8 @@ pacman::p_load("Rserve", "som", "ROCR", "RJSONIO", "Cairo",
                "scatterplot3d", "siggenes", "globaltest", 
                "GlobalAncova", "Rgraphviz", "KEGGgraph", 
                "SSPA", "sva", "car", "fitdistrplus", 
-               "R.utils", "metabomxtr", "rvest")
+               "R.utils", "metabomxtr", "rvest",
+               "GO.db", "WGCNA")
 
 install.necessary.packages <- function(pkg){
     new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
@@ -63,6 +64,7 @@ library(xcms)
 library(CAMERA)
 library(IPO)
 library(MetaboAnalystR)
+library(MetabolomiQCsR)
 
 library(doParallel)
 library(RColorBrewer)
