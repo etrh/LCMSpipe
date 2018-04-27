@@ -298,11 +298,20 @@ plotly::plot_ly(pcares, x = ~PC1, y = ~PC2, z = ~PC3, color = (sampclass(xsg.gau
 #pca3d(pca, group=gr)
 ```
 
-```{r Internal Control}
+```{r Internal standard}
 mzml.file <- xcmsRaw("~/pbio/LC-MS/Data/QTOF_IMPC/FreezingExperiment/ESI+/14_days/83S-A0955_m_WT_FreezinExperiment2_14days_ESI+.mzML")
 mzr = c(288.2, 292.227)
 rtr = c(10.234*60, 10.402*60)
 plotRaw(mzml.file, mzrange = mzr, rtrange = rtr)
+
+all.mzml <- extractMsData(readMSData(list.files(path = "~/pbio/LC-MS/Data/QTOF_IMPC/FreezingExperiment/ESI+/28_days/", full.names = T), mode = "onDisk"), mz = mzr, rtr)
+for(i in 1:length(all.mzml)){
+    ggsave(filename = paste0("internal_standard",i,".png"), 
+           plot = plotMsData(all.mzml[[i]]), 
+           device = "png", dpi = 600, 
+           width = 10, height = 10)
+    graphics.off()
+}
 ```
 
 "into" and "maxo" are (or at least seem to be) peak intensities and areas, respectively.  
