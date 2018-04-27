@@ -1,7 +1,7 @@
 ---
-title: "Pipeline for Analysis of Metabolomics Data in R"
-author: "Ashkan Zareie"
-date: "August-September 2017"
+title: "Metabolomics data analysis using the new XCMS interface"
+author: "František Malinka"
+date: "April 2018"
 output:
   pdf_document: default
   html_document: default
