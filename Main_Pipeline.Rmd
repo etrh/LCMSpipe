@@ -298,6 +298,12 @@ plotly::plot_ly(pcares, x = ~PC1, y = ~PC2, z = ~PC3, color = (sampclass(xsg.gau
 #pca3d(pca, group=gr)
 ```
 
+```{r Internal Control}
+mzml.file <- xcmsRaw("~/pbio/LC-MS/Data/QTOF_IMPC/FreezingExperiment/ESI+/14_days/83S-A0955_m_WT_FreezinExperiment2_14days_ESI+.mzML")
+mzr = c(288.2, 292.227)
+rtr = c(10.234*60, 10.402*60)
+plotRaw(mzml.file, mzrange = mzr, rtrange = rtr)
+```
 
 "into" and "maxo" are (or at least seem to be) peak intensities and areas, respectively.  
 Peak list:  
