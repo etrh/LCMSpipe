@@ -297,6 +297,52 @@ write.csv(dat, file='QC/PeakIntensityMatrix_for_MetaboAnalyst.csv')
 
 ```
 
+```{r contaminants and repeating units}
+#excel file of contaminants by Karel is located at "/storage/brno3-cerit/home/xmalin21/biocev/metabo_analysis/Common background contaminant ions and adducts.xls"
+#but the same file in tsv format is in R package https://github.com/stanstrup/commonMZ
+
+#devtools::install_github("stanstrup/commonMZ", build_vignettes=TRUE)
+#devtools::install_github("fMalinka/commonMZ", build_vignettes=TRUE)
+
+#This function remove contaminants from a table in metaboAnalyst format
+removeContaminants <- function(contaminate, metaboAnalystTable, digits = 2)
+{
+  library(commonMZ)
+  #prepare a table of contaminants and truncate digits
+  contam_pos  <- as.data.frame(contaminate)
+  contam_posTrunc <- trunc(contam_pos$mz*(10^digits))/(10^digits)
+  
+  #get list of mz values from my experiment in xcms object
+  trunMZ <- rownames(metaboAnalystTable) #groupnames(xcsmData, mzdec=1+digits, rtdec=0)
+  groupMZ <- regmatches(trunMZ, regexpr("\\d+(\\.\\d+)?",trunMZ, perl=TRUE))
+  groupMZTrunc <- trunc(as.numeric(groupMZ) * (10^digits))/(10^digits)
+  
+  #Is groupMZ in contaminants?
+  indToRemove <- which(groupMZTrunc %in% contam_posTrunc)
+  metaboAnalystTable_new <- metaboAnalystTable
+  #rownames(metaboAnalystTable_new)[indToRemove+1] #plus 1 because of group row
+  #remove rows and return a table
+  print(paste("Removed", length(indToRemove), "contaminants"))
+  if(length(indToRemove))
+  {
+    return(metaboAnalystTable_new[-(indToRemove+1),])
+  }
+  else {
+    
+    return(metaboAnalystTable_new)
+  }
+}
+
+
+newMetaboAnalystTable <- removeContaminants(contaminate = commonMZ::contaminants_pos,
+                                            metaboAnalystTable = dat)
+#for removing also contaminants neg write:
+newMetaboAnalystTable2 <- removeContaminants(contaminate = commonMZ::contaminants_neg,
+                                            metaboAnalystTable = newMetaboAnalystTable)
+
+```
+
+
 ```{r Isotope and Adduct Detection --- UNDER DEVELOPMENT | Be cautious}
 library(CAMERA)
 an <- xsAnnotate(xdata_old, polarity="positive") # constructor; extracts peak table
