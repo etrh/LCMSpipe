@@ -561,66 +561,87 @@ optimized.xcmsSet <- system.time({
 ```
 
 ```{r XCMS3 Pipeline}
-files.path <- "LCMS-Data/Mzb1/"
+files.path <- "~/PRIMUS/data/83_BIOINFORMATICS/Ashkan/LC-MS/Data/QTOF_IMPC/Rik/ESI+"
 mzml.files <- list.files(files.path, recursive = T, full.names = T, pattern=".mzML")
 mzml.files
 
-pd <- data.frame(sample_name = sub(basename(mzml.files), pattern = ".mzML",
-                   replacement = "", fixed = TRUE),
-         sample_group = c(rep("Mzb1", 7), rep("WT", 6)),
-         stringsAsFactors = FALSE) 
+pheno_data <- data.frame(sample_name = sub(basename(mzml.files), pattern = ".mzML", replacement = "", fixed = TRUE),
+                         sample_group = c(rep("Rik", 14), rep("WT", 14)),
+                         stringsAsFactors = FALSE) 
 
-raw_data <- readMSData(files = mzml.files, pdata = new("NAnnotatedDataFrame", pd), mode = "onDisk")
+raw_data <- readMSData(files = mzml.files, pdata = new("NAnnotatedDataFrame", pheno_data), mode = "onDisk") ###MSnbase can convert 'profile' to 'centroid'. More information: browseVignettes("MSnbase")
 
-head(rtime(raw_data)) 
+spectra(raw_data)
+head(rtime(raw_data), n = 25)
 
 mzs <- mz(raw_data)
-
-## Split the list by file
-mzs_by_file <- split(mzs, f = fromFile(raw_data))
-
+mzs_by_file <- split(mzs, f = fromFile(raw_data)) ## split the list by file / organize mz values by file
 length(mzs_by_file) 
 
-## Get the base peak chromatograms. This reads data from the files.
-bpis <- chromatogram(raw_data, aggregationFun = "max")
-tic <- chromatogram(raw_data, aggregationFun = "sum")
-## Define colors for the two groups
-group_colors <- brewer.pal(3, "Set1")[1:2]
-names(group_colors) <- c("Mzb1", "WT")
+## BPC
 
-## Plot all chromatograms.
+bpis <- chromatogram(raw_data, aggregationFun = "max") ## Get the base peak chromatograms. This reads data from the files.
+tic <- chromatogram(raw_data, aggregationFun = "sum") ## TIC (Total Ion Current)
+group_colors <- brewer.pal(3, "Set1")[1:2] ## Define colors for the groups in the data
+names(group_colors) <- c("Rik", "WT")
+
+dir.create("QC")
+png("QC/01 - BPC.png", width = 7, height = 7, units = "in", res = 600)
 plot(bpis, col = group_colors[raw_data$sample_group], main = "Base Peak Chromatogram (BPC)")
+legend("topleft", col = group_colors, legend = names(group_colors), lty = 1)
+dev.off()
+
+png("QC/02 - TIC.png", width = 7, height = 7, units = "in", res = 600)
 plot(tic, col = group_colors[raw_data$sample_group], main = "Total Ion Current (TIC)")
+legend("topleft", col = group_colors, legend = names(group_colors), lty = 1)
+dev.off()
 
-bpi_1 <- bpis[1, 1]
+
+
+bpi_1 <- bpis[1, 1] ### chromatogram of the first sample
 head(rtime(bpi_1))
+head(intensity(bpi_1))
 
-head(intensity(bpi_1)) 
 
-## Get the total ion current by file
-tc <- split(tic(raw_data), f = fromFile(raw_data))
+tc <- split(tic(raw_data), f = fromFile(raw_data)) ### helpful in detecting problematic or failing MS runs
+png("QC/03 - TIC_distribution_per_file.png", width = 7, height = 7, units = "in", res = 600)
 boxplot(tc, col = group_colors[raw_data$sample_group],
-    ylab = "intensity", main = "Total ion current") 
+        ylab = "Intensity", main = "Distribution of total ion currents per file")
+dev.off()
 
-## Visually inspect the EIC of internal controls, known peaks, etc.
+## Visually inspect the EIC of internal controls, known compounds/peaks, etc. to evaluate and adapt the peak detection settings
 ## Peak widths can be inspected in this way as well, and in turn help us to choose
 ## better peak widths for centWave or other algorithms.
-## Use TopView to the same as well.
+## such checks are necessary for choosing the correct `peakwidth` (expected range of **chromatographic** peak widths) and ppm (maximum expected deviation of m/z values of centroids corresponding to one chromatographic peak; this is usually much larger than the ppm specified by the manufacturer) parameters
+## Use ToppView or mzMine to do the same as well.
+
+
+## Define the rt and m/z range of the peak area
+rtr <- c(600, 700)
+mzr <- c(189, 192)
+## extract the chromatogram
+chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
+png("QC/04 - EIC.png", width = 7, height = 7, units = "in", res = 600)
+plot(chr_raw, col = group_colors[chr_raw$sample_group], 
+     main = paste0("EIC. m/z: ", mzr[1], "-", mzr[2], " | RT: ", rtr[1], "-", rtr[2]))
+legend("topleft", col = group_colors, legend = names(group_colors), lty = 1)
+dev.off()
 
 #Note that Chromatogram objects extracted by the chromatogram method contain an NA value if in a certain scan (i.e. for a specific retention time) no signal was measured in the respective mz range. This is reflected by the lines not being drawn as continuous lines in the plot above.
 
-## Define the rt and m/z range of the peak area
-rtr <- c(92.60, 200)
-mzr <- c(118.07, 118.19)
-## extract the chromatogram
-chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
-plot(chr_raw, col = group_colors[chr_raw$sample_group])
 
 
 ## For the ppm parameter we extract the full MS data (intensity, retention time and m/z values) corresponding to the above peak.
+## To this end we first filter the raw object by retention time, then by m/z and finally plot the object with type = "XIC" to produce the plot below.
 ## the ppm parameter is usually set to a much higher value than advertised by the vendor of the machine
-## Extract the MS data for the region.
-msd_raw <- extractMsData(raw_data, mz = mzr, rt = rtr)
+png("QC/05 - mz_shift_per_file.png", width = 7, height = 7, units = "in", res = 600)
+raw_data %>%
+    filterRt(rt = rtr) %>%
+    filterMz(mz = mzr) %>%
+    plot(type = "XIC")
+dev.off()
+
+msd_raw <- extractMsData(raw_data, mz = mzr, rt = rtr) ## Extract the MS data for the region
 plotMsData(msd_raw[[1]]) 
 
 ## Inspect the lower panel
