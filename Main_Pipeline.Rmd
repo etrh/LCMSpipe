@@ -647,11 +647,13 @@ dev.off()
 ## If you see a straight line, this means there is no variation in the m/z values for that particular peak
 ## Usually one would see the m/z values (lower panel) scatter around the real m/z value of the compound. It is suggested to inspect the ranges of m/z values for many compounds (either internal standards or compounds known to be present in the sample) and define the ppm parameter for centWave according to these.
 
-
+# noise = 12000 means only signals with a value larger than 12000 are considered in peak peaking
 
 cwp <- CentWaveParam(peakwidth = c(15, 45), noise = 12000)
 xdata <- findChromPeaks(raw_data, param = cwp)
 head(chromPeaks(xdata)) 
+
+##### To be continued
 
 #The returned matrix provides the m/z and retention time range for each identified chromatographic peak as well as the integrated signal intensity (“into”) and the maximal peak intensitity (“maxo”). Column “sample” contains the index of the sample in the object/experiment in which the peak was identified.
 
