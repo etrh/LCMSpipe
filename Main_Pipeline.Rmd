@@ -612,7 +612,7 @@ dev.off()
 ## Define the rt and m/z range of the peak area
 rtr <- c(600, 700)
 mzr <- c(189, 192)
-## extract the chromatogram
+## extract the chromatogram and inspect the peakwidth and set the peak picking parameter accordingly
 chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
 png("QC/04 - EIC.png", width = 7, height = 7, units = "in", res = 600)
 plot(chr_raw, col = group_colors[chr_raw$sample_group], 
@@ -634,12 +634,21 @@ raw_data %>%
     plot(type = "XIC")
 dev.off()
 
-msd_raw <- extractMsData(raw_data, mz = mzr, rt = rtr) ## Extract the MS data for the region
-plotMsData(msd_raw[[1]]) 
+for(i in 1:(dim(raw_data@phenoData@data)[1])){
+  png(paste0("QC/05 - mz_shift_in_file_", i, ".png"), width = 7, height = 7, units = "in", res = 600)
+  raw_data %>%
+    filterRt(rt = rtr) %>%
+    filterMz(mz = mzr) %>%
+    filterFile(i) %>%
+    plot(type = "XIC")
+dev.off()
+}
 
 ## Inspect the lower panel
 ## If you see a straight line, this means there is no variation in the m/z values for that particular peak
 ## Usually one would see the m/z values (lower panel) scatter around the real m/z value of the compound. It is suggested to inspect the ranges of m/z values for many compounds (either internal standards or compounds known to be present in the sample) and define the ppm parameter for centWave according to these.
+
+
 
 cwp <- CentWaveParam(peakwidth = c(15, 45), noise = 12000)
 xdata <- findChromPeaks(raw_data, param = cwp)
