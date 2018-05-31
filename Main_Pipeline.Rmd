@@ -525,16 +525,16 @@ mzmatch.ipeak.sort.MetAssign(JHeapSize = 180000, i = "xsg_gaus_neg.peakml", o = 
 
 ```{r IPO / XCMS Parameter Optimization, eval=FALSE}
 peakpickingParameters <- IPO::getDefaultXcmsSetStartingParams('centWave')
-peakpickingParameters$min_peakwidth <- c(10,20)
-peakpickingParameters$max_peakwidth <- c(28,60)
-peakpickingParameters$ppm <- c(5,30)
-peakpickingParameters$snthresh <- c(3,20)
-peakpickingParameters$noise <- 6000
+peakpickingParameters$min_peakwidth <- c(12,35)
+peakpickingParameters$max_peakwidth <- c(15, 65)
+peakpickingParameters$ppm <- c(10,40)
+peakpickingParameters$snthresh <- c(10,80)
+peakpickingParameters$noise <- 5000
 peakpickingParameters$prefilter <- c(3,5)
-peakpickingParameters$value_of_prefilter <- c(7000,12000)
+peakpickingParameters$value_of_prefilter <- c(3000,15000)
 peakpickingParameters$fitgauss <- TRUE
 
-data <- list.files("Data/Mzb1/", recursive = T, full.names = T, pattern = ".mzML")
+data <- list.files("data/Rik/ESI+/", recursive = T, full.names = T, pattern = ".mzML")
 optimized.xcmsSet <- system.time({
     resultPeakpicking <- optimizeXcmsSet(files = data, 
                                          params = peakpickingParameters,
