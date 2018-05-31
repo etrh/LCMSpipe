@@ -528,18 +528,11 @@ peakpickingParameters <- IPO::getDefaultXcmsSetStartingParams('centWave')
 peakpickingParameters$min_peakwidth <- c(12,35)
 peakpickingParameters$max_peakwidth <- c(15, 65)
 peakpickingParameters$ppm <- c(10,40)
-peakpickingParameters$step <- c(0.1, 1)
 peakpickingParameters$snthresh <- c(10,80)
 peakpickingParameters$noise <- 5000
 peakpickingParameters$prefilter <- c(3,5)
 peakpickingParameters$value_of_prefilter <- c(3000,15000)
 peakpickingParameters$fitgauss <- TRUE
-
-peakpickingParameters$fwhm <- c(2,60)
-peakpickingParameters$sigma <- 0
-peakpickingParameters$steps <- c(1,10)
-peakpickingParameters$index <- FALSE
-peakpickingParameters$max <- 5
 
 data <- list.files("data/Rik/ESI+/", recursive = T, full.names = T, pattern = ".mzML")
 optimized.xcmsSet <- system.time({
