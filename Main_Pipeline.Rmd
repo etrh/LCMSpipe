@@ -633,15 +633,20 @@ raw_data %>%
     plot(type = "XIC")
 dev.off()
 
-for(i in 1:(dim(raw_data@phenoData@data)[1])){
-  png(paste0("QC/05 - mz_shift_in_file_", i, ".png"), width = 7, height = 7, units = "in", res = 600)
-  raw_data %>%
-    filterRt(rt = rtr) %>%
-    filterMz(mz = mzr) %>%
-    filterFile(i) %>%
-    plot(type = "XIC")
+cl <- parallel::makeCluster(150)
+doParallel::registerDoParallel(cl)
+
+raw_data_filtered <- raw_data %>% filterRt(rt = rtr) %>% filterMz(mz = mzr)
+dir.create("QC/05 - mz_shift_per_file/")
+foreach::foreach(i = 1:(dim(raw_data@phenoData@data)[1]), 
+                 .packages = c('dplyr', 'xcms')) %dopar% {
+  png(paste0("QC/05 - mz_shift_per_file/05 - mz_shift_in_file_", i, ".png"), 
+      width = 7, height = 7, units = "in", res = 1200)
+  raw_data_filtered %>% filterFile(i) %>% plot(type = "XIC")
 dev.off()
 }
+
+parallel::stopCluster(cl)
 
 ## Inspect the lower panel
 ## If you see a straight line, this means there is no variation in the m/z values for that particular peak
@@ -653,8 +658,6 @@ cwp <- CentWaveParam(peakwidth = c(15, 45), noise = 12000)
 xdata <- findChromPeaks(raw_data, param = cwp)
 head(chromPeaks(xdata)) 
 
-##### To be continued
-
 #The returned matrix provides the m/z and retention time range for each identified chromatographic peak as well as the integrated signal intensity (“into”) and the maximal peak intensitity (“maxo”). Column “sample” contains the index of the sample in the object/experiment in which the peak was identified.
 
 
@@ -662,47 +665,82 @@ head(chromPeaks(xdata))
 summary_fun <- function(z) {
     c(peak_count = nrow(z), rt = quantile(z[, "rtmax"] - z[, "rtmin"]))
 }
-T <- lapply(split.data.frame(chromPeaks(xdata),
+peakTab <- lapply(split.data.frame(chromPeaks(xdata),
                  f = chromPeaks(xdata)[, "sample"]),
         FUN = summary_fun)
-T <- do.call(rbind, T)
-rownames(T) <- basename(fileNames(xdata))
-pander::pandoc.table(T,
+peakTab <- do.call(rbind, peakTab)
+rownames(peakTab) <- basename(fileNames(xdata))
+pander::pandoc.table(peakTab,
          caption = paste0("Summary statistics on identified chromatographic",
                   " peaks. Shown are number of identified peaks per",
                   " sample and widths/duration of chromatographic ",
-                  "peaks.")) 
+                  "peaks."))
+print(peakTab)
 
-### plot the location of the identified chromatographic peaks in the m/z - retention time space for one file
-plotChromPeaks(xdata, file = 3) 
+### plot the location of the identified chromatographic peaks in the m/z - retention time space for each file
+dir.create("QC/06 - location_of_identified_peaks/")
 
+cl <- parallel::makeCluster(150)
+doParallel::registerDoParallel(cl)
+
+foreach::foreach(i = 1:(dim(raw_data@phenoData@data)[1])) %dopar% {
+    png(paste0("QC/06 - location_of_identified_peaks/06 - location_of_identified_peaks_in_file_", i, ".png"), 
+        width = 7, height = 7, units = "in", res = 1200)
+    xcms::plotChromPeaks(xdata, file = i)
+    dev.off()
+}
+
+parallel::stopCluster(cl)
 
 ### plot the frequency of identified peaks per file along the retention time axis. This allows to identify time periods along the MS run in which a higher number of peaks was identified and evaluate whether this is consistent across files.
 ### The frequency is color coded with higher frequency being represented by yellow-white.
-plotChromPeakImage(xdata) 
+png("QC/07 - Peak_frequency.png", width = 10, height = 7, units = "in", res = 1200)
+plotChromPeakImage(xdata, main = "Frequency of identified chromatographic peaks along the retention time axis")
+dev.off()
 
+
+
+### Plot the density of chromatographic peaks along the retention time axis and indicate which peaks would be (or were) grouped into the same feature based using the peak density correspondence method.
+png("QC/08 - Peak_Density.png", 
+    width = 15, height = 7, units = "in", res = 1200)
+plotChromPeakDensity(xdata)
+dev.off()
+
+png("QC/08 - Peak_Density_specific_mz_rt_window.png", 
+    width = 15, height = 7, units = "in", res = 1200)
+plotChromPeakDensity(xdata, mz = c(200,300), rt = c(50,200))
+dev.off()
 
 ## Highlight identified peaks
-rtr = c(1070,1100)
-mzr = c(149,150)
+## Evaluating such plots on a list of peaks corresponding to known peaks or internal standards helps to ensure that peak detection settings were appropriate and correctly identified the expected peaks.
+rtr <- c(600, 700)
+mzr <- c(189, 192)
 chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
+png(paste0("QC/09 - Identified_peaks_in_mz_", mzr[1], "-", mzr[2], 
+           "_rt_", rtr[1], "-", rtr[2], ".png"), width = 15, height = 7, unit = "in",
+    res = 1200)
 plot(chr_raw, col = group_colors[chr_raw$sample_group], lwd = 2)
 highlightChromPeaks(xdata, border = group_colors[chr_raw$sample_group],
                     lty = 3, rt = rtr, mz = mzr)
+dev.off()
 
-## Extract identified peaks in a region
-pander(chromPeaks(xdata, mz = mzr, rt = rtr),
+## Extract identified chromatographic peaks in a region
+pander::pander(chromPeaks(xdata, mz = mzr, rt = rtr),
        caption = paste("Identified chromatographic peaks in a selected ",
-               "m/z and retention time range.")) 
+               "m/z and retention time range."))
 
 
 ### distribution of peak intensity per sample
+### This allows to investigate whether systematic differences in peak signals between samples are present.
 ## Extract a list of per-sample peak intensities (in log2 scale)
+png("QC/10 - distribution_of_peak_intensity_per_sample.png", 
+    width = 15, height = 7, units = "in", res = 1200)
 ints <- split(log2(chromPeaks(xdata)[, "into"]),
           f = chromPeaks(xdata)[, "sample"])
 boxplot(ints, varwidth = TRUE, col = group_colors[xdata$sample_group],
     ylab = expression(log[2]~intensity), main = "Peak intensities")
-grid(nx = NA, ny = NULL) 
+grid(nx = NA, ny = NULL)
+dev.off()
 
 
 #The time at which analytes elute in the chromatography can vary between samples (and even compounds). Such a difference can be inspected using the extracted ion chromatogram plots. The alignment step, also referred to as retention time correction, aims at adjusting this by shifting signals along the retention time axis to align the signals between different samples within an experiment.
