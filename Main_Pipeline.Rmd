@@ -897,7 +897,7 @@ text(pc$x[, 1], pc$x[,2], labels = xdata$sample_name, col = "darkgrey",
      pos = 3, cex = 1)
 
 
-
+xset_conv <- as(xdata, "xcmsSet")
 
 
 x = split(mz(raw_data), f = fromFile(raw_data))
