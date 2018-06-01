@@ -553,6 +553,7 @@ optimized.xcmsSet <- system.time({
 ```
 
 ```{r XCMS3 Pipeline}
+register(bpstart(MulticoreParam(150)))
 files.path <- "~/PRIMUS/data/83_BIOINFORMATICS/Ashkan/LC-MS/Data/QTOF_IMPC/Rik/ESI+"
 mzml.files <- list.files(files.path, recursive = T, full.names = T, pattern=".mzML")
 mzml.files
@@ -896,6 +897,11 @@ grid()
 text(pc$x[, 1], pc$x[,2], labels = xdata$sample_name, col = "darkgrey",
      pos = 3, cex = 1)
 
+
+processHistory(xdata)
+ph <- processHistory(xdata, type = "Retention time correction")
+ph 
+processParam(ph[[1]])
 
 xset_conv <- as(xdata, "xcmsSet")
 
