@@ -676,6 +676,7 @@ pander::pandoc.table(peakTab,
                   " sample and widths/duration of chromatographic ",
                   "peaks."))
 print(peakTab)
+table(chromPeaks(xdata)[, "sample"])
 
 ### plot the location of the identified chromatographic peaks in the m/z - retention time space for each file
 dir.create("QC/06 - location_of_identified_peaks/")
@@ -743,9 +744,11 @@ grid(nx = NA, ny = NULL)
 dev.off()
 
 
-#The time at which analytes elute in the chromatography can vary between samples (and even compounds). Such a difference can be inspected using the extracted ion chromatogram plots. The alignment step, also referred to as retention time correction, aims at adjusting this by shifting signals along the retention time axis to align the signals between different samples within an experiment.
+# The time at which analytes elute in the chromatography can vary between samples (and even compounds). Such a difference can be inspected using the extracted ion chromatogram plots. The alignment step, also referred to as retention time correction, aims at adjusting this by shifting signals along the retention time axis to align the signals between different samples within an experiment.
 
-#adjustRtime, besides calculating adjusted retention times for each spectrum, does also adjust the reported retention times of the identified chromatographic peaks.
+# adjustRtime, besides calculating adjusted retention times for each spectrum, does also adjust the reported retention times of the identified chromatographic peaks.
+
+# Also here it is advisable to modify the settings for each experiment and evaluate if retention time correction did align internal controls or known compounds properly.
 
 
 xdata <- adjustRtime(xdata, param = ObiwarpParam(binSize = 0.6))
@@ -753,17 +756,20 @@ head(adjustedRtime(xdata))
 head(rtime(xdata))  ### defaults to adjustedRtime if it's present
 head(rtime(xdata, adjusted = FALSE)) ### returns original retention times
 
-
 ### investigate the impact of alignment by plotting BPC of the adjusted data
 #To evaluate the impact of the alignment we plot the BPC on the adjusted data. In addition we plot the differences of the adjusted- to the raw retention times per sample using the  plotAdjustedRtime function.
 #Too large differences between adjusted and raw retention times could indicate poorly performing samples or alignment.
+
 ## Get the base peak chromatograms.
 bpis_adj <- chromatogram(xdata, aggregationFun = "max")
 par(mfrow = c(2, 1), mar = c(4.5, 4.2, 1, 0.5))
+png("QC/11 - obiwarp_rtime_correction.png", 
+    width = 15, height = 7, units = "in", res = 1200)
 plot(bpis_adj, col = group_colors[bpis_adj$sample_group])
+
 ## Plot also the difference of adjusted to raw retention time.
 plotAdjustedRtime(xdata, col = group_colors[xdata$sample_group]) 
-
+dev.off()
 
 #use the peak groups alignment method that adjusts the retention time by aligning previously identified hook peaks (chromatographic peaks present in most/all samples). Ideally, these hook peaks should span most part of the retention time range. 
 hasAdjustedRtime(xdata)
@@ -771,7 +777,71 @@ xdata <- dropAdjustedRtime(xdata)
 hasAdjustedRtime(xdata)
 
 
-#The definition of the sample groups (i.e. assignment of individual samples to the sample groups in the experiment) is mandatory for the PeakDensityParam. If there are no sample groups in the experiment sampleGroups should be set to a single value for each file (e.g.  rep(1, length(fileNames(xdata))).
+# The definition of the sample groups (i.e. assignment of individual samples to the sample groups in the experiment) is mandatory for the PeakDensityParam. If there are no sample groups in the experiment sampleGroups should be set to a single value for each file, e.g.  rep(1, length(fileNames(xdata))).
+
+## Correspondence: group peaks across samples.
+pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+            minFraction = 0.8)
+xdata <- groupChromPeaks(xdata, param = pdp)
+
+## Now the retention time correction.
+pgp <- PeakGroupsParam(minFraction = 0.85)
+
+## Get the peak groups that would be used for alignment.
+xdata <- adjustRtime(xdata, param = pgp)
+
+# Note also that we could use the adjustRtimePeakGroups method on the object before alignment to evaluate on which features (peak groups) the alignment would be performed. This can be useful to test different settings for the peak groups algorithm. Also, it is possible to manually select or define certain peak groups (i.e. their retention times per sample) and provide this matrix to the PeakGroupsParam class with the peakGroupsMatrix argument.
+
+# plot the difference between raw and adjusted retention times using the  plotAdjustedRtime function, which, if the peak groups method is used for alignment, also highlights the peak groups used in the adjustment.
+
+## Plot the difference of adjusted to raw retention time.
+
+png("QC/12 - rtime_adjusted_with_peak_grouping.png", 
+    width = 15, height = 7, units = "in", res = 1200)
+plotAdjustedRtime(xdata, col = group_colors[xdata$sample_group],
+          peakGroupsCol = "grey", peakGroupsPch = 1)
+dev.off()
+
+# At last we evaluate the impact of the alignment on the test peak.
+png("QC/13 - rtime_alignment_evaluation_on_test_peak_before_after_alignment.png", 
+    width = 15, height = 7, units = "in", res = 1200)
+par(mfrow = c(2, 1))
+## Plot the raw data
+plot(chr_raw, col = group_colors[chr_raw$sample_group])
+
+## Extract the chromatogram from the adjusted object
+chr_adj <- chromatogram(xdata, rt = rtr, mz = mzr)
+plot(chr_adj, col = group_colors[chr_raw$sample_group]) 
+dev.off()
+
+### Correspondence
+
+## Define the mz slice.
+mzr <- c(189, 192)
+rtr <- c(600, 700)
+
+## Extract and plot the chromatograms
+chr_mzr <- chromatogram(xdata, mz = mzr, rt = rtr)
+par(mfrow = c(3, 1), mar = c(1, 4, 1, 0.5))
+cols <- group_colors[chr_mzr$sample_group]
+plot(chr_mzr, col = cols, xaxt = "n", xlab = "")
+## Highlight the detected peaks in that region.
+highlightChromPeaks(xdata, mz = mzr, col = cols, type = "point", pch = 16)
+## Define the parameters for the peak density method
+pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+            minFraction = 0.4, bw = 30)
+par(mar = c(4, 4, 1, 0.5))
+plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
+             pch = 16, xlim = rtr)
+## Use a different bw
+pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+            minFraction = 0.4, bw = 20)
+plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
+             pch = 16, xlim = rtr) 
+
+## plot shows peak density correspondence
+#Upper panel: chromatogram for an mz slice with multiple chromatographic peaks. Middle and lower panel: identified chromatographic peaks at their retention time (x-axis) and index within samples of the experiments (y-axis) for different values of the bw parameter. The black line represents the peak density estimate. Grouping of peaks (based on the provided settings) is indicated by grey rectangles.
+
 
 x = split(mz(raw_data), f = fromFile(raw_data))
 y = split(intensity(raw_data), f = fromFile(raw_data))
