@@ -416,21 +416,6 @@ tail(datneg)
 #plot(eiccor.gaus, col=as.numeric(phenoData(xsg.gaus)$class))
 ```
 
-"Derivative signals such as isotopes, adducts, dimers and fragments, can be automatically annotated by correlation analysis on both signal shape and intensity patterns using software tools like CAMERA, PUTMEDID-LCMS and mzMatch. Such peaks are not discarded, but only flagged, so that their assigned annotations can be taken into account in the metabolite identification step."
-```{r Isotope and Adduct Detection --- UNDER DEVELOPMENT | Be cautious}
-an <- xsAnnotate(xsg.gaus, polarity="positive") # constructor; extracts peak table
-an <- groupFWHM(an, perfwhm = 1) # group peaks by retention time
-#an <- findIsotopesWithValidation(object = an, ppm = 5, mzabs = 0.01, intval="intb", maxcharge = 3)
-peakTable <- getPeaklist(an) # extract peak list
-head(peakTable)
-tail(peakTable)
-an <- groupCorr(an)
-anF <- findIsotopes(an)
-anF <- findAdducts(anF, polarity="positive")
-write.csv(getPeaklist(anF),file="isotope_adduct_prediction.csv")
-getPeaklist(anF)
-```
-
 ```{r Independent Component Analysis (ICA) / T-distributed Stochastic Neighbor Embedding (tSNE) --- UNDER DEVELOPMENT | Be cautious}
 t <- dat
 head(t)
@@ -906,10 +891,26 @@ processParam(ph[[1]])
 xset_conv <- as(xdata, "xcmsSet")
 
 
+
 x = split(mz(raw_data), f = fromFile(raw_data))
 y = split(intensity(raw_data), f = fromFile(raw_data))
 z = (split(rtime(raw_data), f = fromFile(raw_data)))
 dl <- data.frame(mz = unlist(x$`1`), int = unlist(y$`1`), rt = rep(z$`1`, (Biobase::listLen(x$`1`))))
 p <- plot_ly(x = dl$mz, y = dl$int, z = as.matrix(dl$rt)) %>% add_surface() ## surface 3D plot
 p
+```
+
+"Derivative signals such as isotopes, adducts, dimers and fragments, can be automatically annotated by correlation analysis on both signal shape and intensity patterns using software tools like CAMERA, PUTMEDID-LCMS and mzMatch. Such peaks are not discarded, but only flagged, so that their assigned annotations can be taken into account in the metabolite identification step."
+```{r Isotope and Adduct Detection --- UNDER DEVELOPMENT | Be cautious}
+an <- xsAnnotate(xsg.gaus, polarity = "positive") # constructor; extracts peak table
+an <- groupFWHM(an, perfwhm = 1) # group peaks by retention time
+#an <- findIsotopesWithValidation(object = an, ppm = 5, mzabs = 0.01, intval="intb", maxcharge = 3)
+peakTable <- getPeaklist(an) # extract peak list
+head(peakTable)
+tail(peakTable)
+an <- groupCorr(an)
+anF <- findIsotopes(an)
+anF <- findAdducts(anF, polarity="positive")
+write.csv(getPeaklist(anF),file="isotope_adduct_prediction.csv")
+getPeaklist(anF)
 ```
