@@ -889,6 +889,7 @@ ph
 processParam(ph[[1]])
 
 xset_conv <- as(xdata, "xcmsSet")
+xset_conv <- fillPeaks(xset_conv)
 sampclass(xset_conv) <- gsub("^.*\\.", "", sampclass(xset_conv))
 
 
@@ -926,8 +927,50 @@ xsaFI <- findIsotopes(xsaC)
 xsaFA <- findAdducts(xsaFI, polarity="positive")
 
 #Get final peaktable and store on harddrive / ## extract annotated peak table
-xsaPL <- getPeaklist(xsaFA)
+xsaPL <- getPeaklist(xsaFA) 
+
+## pcgroup shows the annotation group / column pc shows the result of the peak correlation based annotation (independent of the annotations iso and adduct). Peaks with the same label are supposed to belong to the same spectrum
+
+## The column adduct shows the annotation hypotheses for the ions species. The value after the brackets is the estimated molecular mass.
+
+## The column isotopes contains the annotated isotopes for a monoisotopic peak. The values in the first square brackets denote the isotope-group-id(column id), the second is the isotope annotation and the number after the brackets is the charge of the isotope.
+
+
 sample_groups <- paste(unique(xsaFA@xcmsSet@phenoData$sample_group), collapse = "_")
 write.csv(xsaPL, file = paste0(sample_groups, 
                                "adducts_isotopes_fragments_annotated.csv"))
+
+diffrep <- diffreport(xset_conv, 
+                      class1 = levels(sampclass(xset_conv))[1],
+                      class2 = levels(sampclass(xset_conv))[2], 
+                      filebase = "diffreport_ESI", eicmax = 50, 
+                      sortpval = FALSE, ## this is very important
+                      metlin = 0.5, mzdec = 5)
+
+xsa.peaklist <- getPeaklist(xsaFA)
+diffrep.new <- cbind(diffrep, xsa.peaklist[, c("isotopes", "adduct","pcgroup")])
+diffrep.new <- diffrep.new[order(diffrep.new[,"pvalue"]),] #Sort after pvalue
+
+plotEICs(xsaFA, pspec = 2, maxlabel = 5)
+plotPsSpectrum(xsaFA, pspec = 2, maxlabel = 5)
+
+
+
+
+## annotate is a wrapper function for the annotation workflow. It runs groupFWHM, findIsotopes, groupCorr and findAdducts in order as mentioned.
+
+#A full annotation run
+xsa <- CAMERA::annotate(xset_conv, perfwhm = 0.6, 
+                        cor_eic_th = 0.75, ppm = 5, polarity="positive", 
+                        sample = c(1:dim(xset_conv@phenoData)[1]))
+
+peaklist <- getPeaklist(xsa)
+write.csv(peaklist, file = "results.csv")
+
+
+
+
+#Make a diffreport with CAMERA result / running fillPeaks in advance is necessary
+diffreport <- annotateDiffreport(xset_conv) # wrapper function for the xcms diffreport and the annotate function
+write.csv(diffreport, file="diffreport.csv")
 ```
