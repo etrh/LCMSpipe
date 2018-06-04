@@ -918,13 +918,19 @@ xsaC <- groupCorr(xsaF)
 
 #Annotate isotopes (isotopic peaks), could be done before groupCorr
 xsaFI <- findIsotopes(xsaC)
+# maxcharge and maxiso control the maximum number of the expected isotopes within one cluster and their charges
+
+# CAMERA can identify isotope peaks within every pseudospectra. In particular, putative isotope clusters are validated and deconvoluted based on database statistics of the KEGG database
 # an <- findIsotopesWithValidation(object = xsaF, 
 #                                  ppm = 10, mzabs = 0.01, 
 #                                  intval="intb", maxcharge = 3, 
 #                                  validateIsotopePatterns = T, database = compoundLibraries()[5])
 
 #Annotate adducts
-xsaFA <- findAdducts(xsaFI, polarity="positive")
+xsaFA <- findAdducts(xsaFI, polarity="positive") 
+## CAMERA calculates its own rule table depending on your ionization mode
+## However, 'rules' parameter can be set (CAMERA contains four precalculated rule tables)
+## e.g. rules = read.csv(system.file('rules/primary_adducts_pos.csv', package = "CAMERA"))
 
 #Get final peaktable and store on harddrive / ## extract annotated peak table
 xsaPL <- getPeaklist(xsaFA) 
@@ -947,7 +953,7 @@ diffrep <- diffreport(xset_conv,
                       sortpval = FALSE, ## this is very important
                       metlin = 0.5, mzdec = 5)
 
-xsa.peaklist <- getPeaklist(xsaFA)
+xsa.peaklist <- xsaPL
 diffrep.new <- cbind(diffrep, xsa.peaklist[, c("isotopes", "adduct","pcgroup")])
 diffrep.new <- diffrep.new[order(diffrep.new[,"pvalue"]),] #Sort after pvalue
 
@@ -973,4 +979,11 @@ write.csv(peaklist, file = "results.csv")
 #Make a diffreport with CAMERA result / running fillPeaks in advance is necessary
 diffreport <- annotateDiffreport(xset_conv) # wrapper function for the xcms diffreport and the annotate function
 write.csv(diffreport, file="diffreport.csv")
+
+
+# To be continued ...
+# Follow up this document from section '5.6 Function findNeutralLoss' onwards
+# https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/CAMERA.pdf
+# This has not been covered yet; https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/compoundQuantilesVignette.pdf
+# 
 ```
