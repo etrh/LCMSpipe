@@ -7,7 +7,7 @@ output: html_document
   
   
 On UNIX-based systems you will first need to ensure that the following requirements are installed:  
-  `sudo apt-get install -y libxml2-dev libcurl4-openssl-dev libssl-dev netcdf-bin libnetcdf-dev gfortran libblas-dev liblapack-dev libpcre++-dev liblzma-dev libbz2-dev libgtk2.0-dev bwidget libglu1-mesa-dev freeglut3-dev mesa-common-dev default-jre default-jdk`
+  `sudo apt-get install -y libxml2-dev libcurl4-openssl-dev libssl-dev netcdf-bin libnetcdf-dev gfortran libblas-dev liblapack-dev libpcre++-dev liblzma-dev libbz2-dev libgtk2.0-dev bwidget libglu1-mesa-dev freeglut3-dev mesa-common-dev default-jre default-jdk libmariadbclient-dev libmariadb-client-lgpl-dev`
   
   
 ```{r Setup, include=FALSE}
@@ -1023,8 +1023,50 @@ rule.table.file1 <- system.file('rules/primary_adducts_pos.csv', package = "CAME
 rule.table.file2 <- system.file('rules/primary_adducts_neg.csv', package = "CAMERA")
 rule.table.file3 <- system.file('rules/extended_adducts_pos.csv', package = "CAMERA")
 rule.table.file4 <- system.file('rules/extended_adducts_neg.csv', package = "CAMERA")
+```
 
+```{r Atom count expectation and isotope cluster validation}
+# Here, we compute quantiles for the ratio between the isotopes of database-specific sets of substances resulting in confidence intervals of isotope ratios. We check whether the ratios between the peaks of a putative isotope cluster are within the calculated confidence intervals and deconvolute the putative isotope cluster otherwise.
 
-# This has not been covered yet; https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/compoundQuantilesVignette.pdf
-# 
+# There are at least four cases for which the validation of isotope clusters can be beneficial:
+
+# First, valid isotope clusters can be verified which strengthens the trust in the data. 
+
+# Second, multiple coeluting substances with mass differences of a few dalton can result in isobaric ion species and thus in overlapping isotope clusters. These are potentially misinterpreted as a single isotope cluster affecting downstream analyses. This necessitates the deconvolution of the overlapping isotope cluster into at least two valid isotope clusters. 
+
+# Third, substances can be affected by hydrogen loss. This leads to mass differences similar to isotope peaks and can result in a small trailing peak which is potentially misinterpreted as monoisotopic peak of the putative isotope cluster. This may result in the assumption of a wrong monoisotopic mass and may even lead to the rejection of the entire isotope cluster on the basis of failed intensity-checks. Although this small trailing peak corresponds to the same substance, it needs to be removed from the isotope cluster in order to allow more precise molecular formula predictions. 
+
+# Fourth, the intensity of small peaks is systematically underestimated by some mass spectrometers which leads to distorted ratios between different isotope peaks as reported previously in Boecker et al. 2009. This intensity bias would lead to distorted molecular formula predictions and the removal of these underestimated peaks from the isotope cluster allows more precise molecular formula predictions.
+
+cpObj <- compoundQuantiles(compoundLibrary = "kegg")
+
+## meta information
+print(paste("Available libraries = {", paste(compoundLibraries(), collapse = ", "), "}", sep = ""))
+print(paste("Compound library = ", cpObj@compoundLibrary, sep = ""))
+print(paste("Available mass window sizes = {", paste(massWindowSizes(cpObj@compoundLibrary), collapse = ", "), "}", sep = ""))
+print(paste("Mass window size = ", cpObj@massWindowSize, sep = ""))
+print(paste("Elements = {", paste(cpObj@elementSet, collapse = ", "), "}", sep = ""))
+print(paste("Isotopes = {", paste(cpObj@isotopeSet, collapse = ", "), "}", sep = ""))
+print(paste("Mass interval = [", cpObj@minCompoundMass, ", ", cpObj@maxCompoundMass, "] Da; #mass windows = ", cpObj@numberOfMassWindows, " a ", cpObj@massWindowSize, "Da", sep = ""))
+print(paste("Quantile levels = {", paste(cpObj@quantileSet, collapse = ", "), "}", sep = ""))
+
+## examples
+compoundMass <- 503 # mass of the compound is 503 Da
+quantileLow <- 0.05 # 5% (lower quantile)
+quantileHigh <- 0.95 # 95% (higher quantile)
+
+## example for element count
+element <- "C" # the element is Carbon
+countLow <- getAtomCount(object = cpObj, element = element, mass = compoundMass, quantile = quantileLow)
+countHigh <- getAtomCount(object = cpObj, element = element, mass = compoundMass, quantile = quantileHigh)
+print(paste("The ", (quantileHigh - quantileLow) * 100, "% confidence interval for the number of atoms of element ", element, " in a compound with mass ", compoundMass, " is [", countLow, ", ", countHigh, "]", sep = ""))
+
+# getAtomCount returns the expected number of atoms (countLow and countHigh) of the given element in a compound of the given mass for the given quantiles
+
+## example for isotope proportion
+isotope1 <- 0
+isotope2 <- 1
+propLow <- getIsotopeProportion(object = cpObj, isotope1 = isotope1, isotope2 = isotope2, mass = compoundMass, quantile = quantileLow)
+propHigh <- getIsotopeProportion(object = cpObj, isotope1 = isotope1, isotope2 = isotope2, mass = compoundMass, quantile = quantileHigh)
+print(paste("The ", (quantileHigh - quantileLow) * 100, "% confidence interval for the proportion of isotopes ", isotope1, " / ", isotope2, " in a compound with mass ", compoundMass, " is [", propLow, ", ", propHigh, "]", sep = ""))
 ```
