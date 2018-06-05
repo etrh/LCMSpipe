@@ -1100,7 +1100,7 @@ system('unzip master.zip; rm master.zip')
 # $ sudo /usr/bin/mysql -u root -p
 #   mysql> CREATE DATABASE QC4MetabolomicsR;
 #   mysql> GRANT ALL PRIVILEGES ON *.* TO 'R_user'@'localhost' IDENTIFIED BY 'pass1234';
-# MetabolomiQCsR.env$db <- "QC4MetabolomicsR"
+# MetabolomiQCsR.env$db$db <- "QC4MetabolomicsR"
 # MetabolomiQCsR.env$db$user <- "R_user"
 # MetabolomiQCsR.env$db$password <- "pass1234"
 # MetabolomiQCsR.env$db$host <- "127.0.0.1"
