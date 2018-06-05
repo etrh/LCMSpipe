@@ -904,16 +904,18 @@ p
 "Derivative signals such as isotopes, adducts, dimers and fragments, can be automatically annotated by correlation analysis on both signal shape and intensity patterns using software tools like CAMERA, PUTMEDID-LCMS and mzMatch. Such peaks are not discarded, but only flagged, so that their assigned annotations can be taken into account in the metabolite identification step."
 
 We want to answer the questions which peaks occur from the same molecule and secondly compute its exact mass and annotate the ion species.
-```{r Isotope, adduct, and fragment detection/annotation}
+```{r Isotope, adduct, and fragment detection/annotation, isotope decomposition, and neutral loss exploration}
 #Create an xsAnnotate object / create pseudospectra and perform isotope clster detection
 xsa <- xsAnnotate(xset_conv, polarity = "positive", sample = c(1:dim(xset_conv@phenoData)[1]))
 
 #Group after RT value of the xcms grouped peak / group peaks by retention time
-xsaF <- groupFWHM(xsa, perfwhm=0.6) 
+xsaF <- groupFWHM(xsa, perfwhm=0.6)
+# this function uses the retention time information. Every peaks that falls into a defined window are considered as one group. The window is defined as a percentage of the peak FWHM around the RT med value
 # The perfwhm parameter defines the window width, which is used for matching. Lower it for a smaller windows or set it to a higher value, if the retention time varies.
 
 #Verify grouping
-xsaC <- groupCorr(xsaF)
+xsaC <- groupCorr(xsaF) # This function calculates the pearson correlation coefficient based on the peak shapes of every peak in the pseudospectrum to separate co-eluted substances. Run groupFWHM before groupCorr to avoid extremely long running times
+
 # if your analysis doesn’t need annotations, only a separation into groups, then simply stop after groupCorr
 
 #Annotate isotopes (isotopic peaks), could be done before groupCorr
@@ -959,8 +961,12 @@ diffrep.new <- diffrep.new[order(diffrep.new[,"pvalue"]),] #Sort after pvalue
 
 plotEICs(xsaFA, pspec = 2, maxlabel = 5)
 plotPsSpectrum(xsaFA, pspec = 2, maxlabel = 5)
+plotEICs(xsaFA,1) # Plot all peak EICs of pseudospectrum 1
 
-
+# plotPsSpectrum plots the spectrum of a pseudospectrum, labelling the most intense peaks
+# Plot the spectrum of pseudospectrum 1 and highlight the
+# annotation and mz labels of the 10 strongest peaks
+plotPsSpectrum(xsaFA, 1, maxlabel = 10)
 
 
 ## annotate is a wrapper function for the annotation workflow. It runs groupFWHM, findIsotopes, groupCorr and findAdducts in order as mentioned.
@@ -981,9 +987,44 @@ diffreport <- annotateDiffreport(xset_conv) # wrapper function for the xcms diff
 write.csv(diffreport, file="diffreport.csv")
 
 
-# To be continued ...
-# Follow up this document from section '5.6 Function findNeutralLoss' onwards
-# https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/CAMERA.pdf
+# A common strategy to identify interesting compounds is the screening after specific neutral losses. CAMERA adopts this strategy and provides with findNeutralLoss and findNeutralLossSpecs an interface for scanning every pseudospectrum for neutral losses. The difference between both methods is in the results. findNeutralLossSpecs returns an artificial xcmsSet containing the peaks, which have the neutral loss. findNeutralLossSpecs returns a boolean vector for every pseudospectrum, where a hit is marked with TRUE.
+
+# The function needs a xsAnnotate object after groupCorr or groupFWHM
+
+# Let's search for peaks with water loss
+nloss.pseudo.xset <- findNeutralLoss(xsaF, mzdiff = 18.01, mzabs = 0.01) # The method searches in every pseudospectra for a distance between two ions matching a provided mass difference. 
+
+nloss.pseudo.spect <- findNeutralLossSpecs(xsaF, mzdiff = 18.01, mzabs = 0.01)
+
+head(nloss.pseudo.xset@peaks) #show hits
+head(nloss.pseudo.spect)
+
+## Extracting isotope clusters/annotations
+
+isolist <- getIsotopeCluster(xsaFI) # extracts the isotope annotation from a xsAnnotate object
+isolist[[10]] # get IsotopeCluster 10
+
+isolist.multiple <- getIsotopeCluster(xsaFI, sampleIndex=c(1,2,5,7,9)) # Select from multiple samples
+
+
+## Interaction with Rdisop for calculation of molecular composition
+
+isotopes.decomposed <- lapply(isolist.multiple,function(x) {
+  Rdisop::decomposeIsotopes(x$peaks[,1],x$peaks[,2],z=x$charge);
+}) #decomposed isotope cluster, filter steps are recommended
+
+length(isotopes.decomposed)
+head(isotopes.decomposed[[1]])
+
+
+# Rule tables in CAMERA, more info can be found in `vignette("CAMERA")`
+
+rule.table.file1 <- system.file('rules/primary_adducts_pos.csv', package = "CAMERA")
+rule.table.file2 <- system.file('rules/primary_adducts_neg.csv', package = "CAMERA")
+rule.table.file3 <- system.file('rules/extended_adducts_pos.csv', package = "CAMERA")
+rule.table.file4 <- system.file('rules/extended_adducts_neg.csv', package = "CAMERA")
+
+
 # This has not been covered yet; https://bioconductor.org/packages/release/bioc/vignettes/CAMERA/inst/doc/compoundQuantilesVignette.pdf
 # 
 ```
