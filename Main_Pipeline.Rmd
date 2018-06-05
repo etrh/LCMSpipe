@@ -58,6 +58,7 @@ biocValid()
 
 devtools::install_git("https://gitlab.com/R_packages/massageR.git")
 devtools::install_github("stanstrup/QC4Metabolomics/MetabolomiQCsR")
+devtools::install_github("stanstrup/commonMZ")
 
 library(MSnbase)
 library(xcms)
@@ -1025,6 +1026,26 @@ rule.table.file3 <- system.file('rules/extended_adducts_pos.csv', package = "CAM
 rule.table.file4 <- system.file('rules/extended_adducts_neg.csv', package = "CAMERA")
 ```
 
+```{r Contaminant annotation in CAMERA}
+positive_rule <- system.file('extdata/CAMERA_rules_pos.xlsx', package = "commonMZ")
+negative_rule <- system.file('extdata/CAMERA_rules_neg.xlsx', package = "commonMZ")
+EI_mode_rule <- system.file('extdata/CAMERA_rules_EI.xlsx', package = "commonMZ")
+
+positive_rule <- as.data.frame(readxl::read_xlsx(positive_rule))
+negative_rule <- as.data.frame(readxl::read_xlsx(negative_rule))
+EI_mode_rule <- as.data.frame(readxl::read_xlsx(EI_mode_rule))
+
+xsaFA_con <- findAdducts(xsaFI, polarity = "positive", rules = as.data.frame(positive_rule))
+
+### Another way of doing it:
+
+contaminant_rules <- commonMZ::MZ_CAMERA(mode = "pos", warn_clash = T, clash_ppm = 5)
+contaminant_rules_df <- as.data.frame(contaminant_rules)
+xsaFA_cntm <- findAdducts(xsaFI, polarity = "positive", rules = contaminant_rules_df)
+found_adduct_contaminants <- getPeaklist(xsaFA_cntm)
+found_adduct_contaminants %>% distinct(adduct) %>% head(n = 15)
+```
+
 ```{r Atom count expectation and isotope cluster validation}
 # Here, we compute quantiles for the ratio between the isotopes of database-specific sets of substances resulting in confidence intervals of isotope ratios. We check whether the ratios between the peaks of a putative isotope cluster are within the calculated confidence intervals and deconvolute the putative isotope cluster otherwise.
 
@@ -1069,4 +1090,19 @@ isotope2 <- 1
 propLow <- getIsotopeProportion(object = cpObj, isotope1 = isotope1, isotope2 = isotope2, mass = compoundMass, quantile = quantileLow)
 propHigh <- getIsotopeProportion(object = cpObj, isotope1 = isotope1, isotope2 = isotope2, mass = compoundMass, quantile = quantileHigh)
 print(paste("The ", (quantileHigh - quantileLow) * 100, "% confidence interval for the proportion of isotopes ", isotope1, " / ", isotope2, " in a compound with mass ", compoundMass, " is [", propLow, ", ", propHigh, "]", sep = ""))
+```
+
+```{r QC4Metabolomics}
+system('wget https://github.com/stanstrup/QC4Metabolomics/archive/master.zip')
+system('unzip master.zip; rm master.zip')
+
+# $ sudo /etc/init.d/mysql start
+# $ sudo /usr/bin/mysql -u root -p
+#   mysql> CREATE DATABASE QC4MetabolomicsR;
+#   mysql> GRANT ALL PRIVILEGES ON *.* TO 'R_user'@'localhost' IDENTIFIED BY 'pass1234';
+# MetabolomiQCsR.env$db <- "QC4MetabolomicsR"
+# MetabolomiQCsR.env$db$user <- "R_user"
+# MetabolomiQCsR.env$db$password <- "pass1234"
+# MetabolomiQCsR.env$db$host <- "127.0.0.1"
+runApp(appDir = "QC4Metabolomics-master/Shiny App/", launch.browser = T)
 ```
