@@ -1126,4 +1126,14 @@ sample_info <- lapply(sample_info_pos, XML::xmlToDataFrame)
 
 #worklist <- list(NULL)
 #worklist <- lapply(worklist_pos, XML::xmlToDataFrame)
+
+# XML nodes
+
+f <- XML::xmlParse(worklist_pos[1])
+ff <- getNodeSet(f, "//JobDataList")
+
+# Order of the run
+
+xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData") )
+xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//Name"))
 ```
