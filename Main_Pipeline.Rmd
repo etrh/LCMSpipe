@@ -1132,6 +1132,24 @@ sample_info_pos <- list.files(path = xml.path, pattern = "sample_info.xml",
 sample_info <- list(NULL)
 sample_info <- lapply(sample_info_pos, XML::xmlToDataFrame)
 
+sample_info[[1]] %>% 
+  dplyr::select(DisplayName, Value) %>% 
+  filter(DisplayName %in% c("Sample Name", "Sample Position", 
+                            "Method", "Inj Vol (µl)", "Equilib Time (min)", 
+                            "Dilution", "Acquisition Time", "Operator Name"))
+
+sample_info_extracted <- lapply(sample_info, function(exdata){
+  exdata %>% 
+    dplyr::select(DisplayName, Value) %>% 
+    filter(DisplayName %in% 
+             c("Sample Name", "Sample Position", "Method", 
+               "Inj Vol (µl)", "Equilib Time (min)", "Dilution", 
+               "Acquisition Time", "Operator Name"))})
+
+for(i in length(sample_info_extracted)){
+  names(sample_info_extracted)[i] <- sample_info_extracted[[i]]$Value[1]
+}
+
 ## Job/experiment information/metadata
 
 worklist_pos <- list.files(path = xml.path, pattern = "Worklist.xml", 
@@ -1155,6 +1173,8 @@ data.frame(
     DilutionFactor = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//DilutionFactor"))$text,
     AcqMethod = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//AcqMethod"))$text
 )})
+
+### worklist table (experiment_metadata) doesn't seem to be useful and consistent.. The order of running samples in each file is different!
 ```
 
 ```{r Mixture Model Normalization with metabomxtr}
@@ -1164,7 +1184,16 @@ data.frame(
 ### Two additional columns are needed to specify 'phenotype' group and 'batch' (run) number
 
 ## Q: Can we instead (of batch run number) use some other information from the tables generated above? (experiment_metadata and sample_info). IN PROGRESS. WILL BE INVESTIGATED BELOW.
+## Several columns included in data(metabdata) can perhaps give a better idea on what sort of information can be used
 
 metabomxtr_table <- as.data.frame(t(metaboanalyst_dat))
 names(metabomxtr_table)[grep(pattern = "group", x = names(metabomxtr_table))] <- "phenotype"
+
+## log-transform intensity values (is this needed/recommended?)
+for(i in 2:length(metabomxtr_table)){metabomxtr_table[,i] <- as.numeric(as.character(metabomxtr_table[,i]))}
+metabomxtr_table[,-1] <- log2(metabomxtr_table[,-1])
+
+#metabomxtr has two main functions: mxtrmod and mxtrmodLRT. mxtrmod executes mixture models, taking as inputs response variable names, a model formula and a data object (a matrix of values with NA to indicate missingness or an ExpressionSet R object). It returns optimized parameter estimates and the corresponding negative log likelihood value. Parameter vectors α and β are estimated using maximum likelihood using the optimx package. By default, T is set to the minimum observed metabolite abundance.
+
+
 ```
