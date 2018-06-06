@@ -600,7 +600,8 @@ rtr <- c(600, 700)
 mzr <- c(189, 192)
 ## extract the chromatogram and inspect the peakwidth and set the peak picking parameter accordingly
 chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
-png("QC/04 - EIC.png", width = 7, height = 7, units = "in", res = 600)
+png(paste0("QC/04 - EIC. ", "mz_", mzr[1], "-", mzr[2], "_-_RT_", rtr[1], "-", rtr[2], ".png"),
+    width = 7, height = 7, units = "in", res = 600)
 plot(chr_raw, col = group_colors[chr_raw$sample_group], 
      main = paste0("EIC. m/z: ", mzr[1], "-", mzr[2], " | RT: ", rtr[1], "-", rtr[2]))
 legend("topleft", col = group_colors, legend = names(group_colors), lty = 1)
@@ -620,7 +621,7 @@ raw_data %>%
     plot(type = "XIC")
 dev.off()
 
-cl <- parallel::makeCluster(150)
+cl <- parallel::makeCluster(100)
 doParallel::registerDoParallel(cl)
 
 raw_data_filtered <- raw_data %>% filterRt(rt = rtr) %>% filterMz(mz = mzr)
@@ -641,9 +642,10 @@ parallel::stopCluster(cl)
 
 # noise = 12000 means only signals with a value larger than 12000 are considered in peak peaking
 
-cwp <- CentWaveParam(peakwidth = c(15, 45), noise = 12000)
+cwp <- CentWaveParam(peakwidth = c(8, 25), noise = 2000, ppm = 30, 
+                     snthresh = 9, prefilter = c(5,3000), fitgauss = TRUE)
 xdata <- findChromPeaks(raw_data, param = cwp)
-head(chromPeaks(xdata)) 
+head(chromPeaks(xdata))
 
 #The returned matrix provides the m/z and retention time range for each identified chromatographic peak as well as the integrated signal intensity (“into”) and the maximal peak intensitity (“maxo”). Column “sample” contains the index of the sample in the object/experiment in which the peak was identified.
 
@@ -668,7 +670,7 @@ table(chromPeaks(xdata)[, "sample"])
 ### plot the location of the identified chromatographic peaks in the m/z - retention time space for each file
 dir.create("QC/06 - location_of_identified_peaks/")
 
-cl <- parallel::makeCluster(150)
+cl <- parallel::makeCluster(100)
 doParallel::registerDoParallel(cl)
 
 foreach::foreach(i = 1:(dim(raw_data@phenoData@data)[1])) %dopar% {
@@ -873,6 +875,9 @@ pc <- prcomp(t(na.omit(ft_ints)), center = TRUE)
 ## Plot the PCA
 cols <- group_colors[xdata$sample_group]
 pcSummary <- summary(pc)
+
+png("QC/15 - PCA.png", 
+    width = 15, height = 7, units = "in", res = 1200)
 plot(pc$x[, 1], pc$x[,2], pch = 21, main = "Non-normalized intensities", 
      xlab = paste0("PC1: ", format(pcSummary$importance[2, 1] * 100,
                    digits = 3), " % variance"),
@@ -882,6 +887,7 @@ plot(pc$x[, 1], pc$x[,2], pch = 21, main = "Non-normalized intensities",
 grid()
 text(pc$x[, 1], pc$x[,2], labels = xdata$sample_name, col = "darkgrey",
      pos = 3, cex = 1)
+dev.off()
 
 
 processHistory(xdata)
