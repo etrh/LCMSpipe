@@ -529,15 +529,6 @@ optimized.xcmsSet <- system.time({
 
 ```
 
-```{r Mixture Model Normalization with metabomxtr}
-### https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/mixnorm_Vignette.pdf
-### We can use the peak intensity matrix that was generated for MetaboAnalyst
-### However, samples should be in rows and metabolites in columns
-### Two additional columns are needed to specify 'phenotype' group and 'batch' (run) number
-
-
-```
-
 ```{r XCMS3 Pipeline}
 register(bpstart(MulticoreParam(150)))
 files.path <- "~/PRIMUS/data/83_BIOINFORMATICS/Ashkan/LC-MS/Data/QTOF_IMPC/Rik/ESI+"
@@ -896,8 +887,19 @@ ph
 processParam(ph[[1]])
 
 xset_conv <- as(xdata, "xcmsSet")
-xset_conv <- fillPeaks(xset_conv)
+#xset_conv <- fillPeaks(xset_conv)
 sampclass(xset_conv) <- gsub("^.*\\.", "", sampclass(xset_conv))
+
+
+## MetaboAnalyst matrix
+metaboanalyst_dat <- groupval(xset_conv, "medret", "into")
+rownames(metaboanalyst_dat) <- groupnames(xset_conv, mzdec = 5, rtdec = 5)
+metaboanalyst_dat <- rbind(group = as.character(phenoData(xset_conv)$class), metaboanalyst_dat)
+colnames(metaboanalyst_dat) <- xset_conv@phenoData$sample_name
+write.csv(metaboanalyst_dat, file='PeakIntensityMatrix_MetaboAnalyst.csv')
+head(metaboanalyst_dat)
+tail(metaboanalyst_dat)
+
 
 
 x = split(mz(raw_data), f = fromFile(raw_data))
@@ -1153,4 +1155,16 @@ data.frame(
     DilutionFactor = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//DilutionFactor"))$text,
     AcqMethod = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//AcqMethod"))$text
 )})
+```
+
+```{r Mixture Model Normalization with metabomxtr}
+### https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/mixnorm_Vignette.pdf
+### We can use the peak intensity matrix that was generated for MetaboAnalyst
+### However, samples should be in rows and metabolites in columns
+### Two additional columns are needed to specify 'phenotype' group and 'batch' (run) number
+
+## Q: Can we instead (of batch run number) use some other information from the tables generated above? (experiment_metadata and sample_info). IN PROGRESS. WILL BE INVESTIGATED BELOW.
+
+metabomxtr_table <- as.data.frame(t(metaboanalyst_dat))
+names(metabomxtr_table)[grep(pattern = "group", x = names(metabomxtr_table))] <- "phenotype"
 ```
