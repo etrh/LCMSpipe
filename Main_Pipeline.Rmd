@@ -1093,16 +1093,37 @@ print(paste("The ", (quantileHigh - quantileLow) * 100, "% confidence interval f
 ```
 
 ```{r QC4Metabolomics}
-system('wget https://github.com/stanstrup/QC4Metabolomics/archive/master.zip')
-system('unzip master.zip; rm master.zip')
+git2r::clone(url = "https://github.com/stanstrup/QC4Metabolomics.git")
 
+# First, set up the database in MySQL
 # $ sudo /etc/init.d/mysql start
 # $ sudo /usr/bin/mysql -u root -p
 #   mysql> CREATE DATABASE QC4MetabolomicsR;
-#   mysql> GRANT ALL PRIVILEGES ON *.* TO 'R_user'@'localhost' IDENTIFIED BY 'pass1234';
-# MetabolomiQCsR.env$db$db <- "QC4MetabolomicsR"
-# MetabolomiQCsR.env$db$user <- "R_user"
-# MetabolomiQCsR.env$db$password <- "pass1234"
-# MetabolomiQCsR.env$db$host <- "127.0.0.1"
-runApp(appDir = "QC4Metabolomics-master/Shiny App/", launch.browser = T)
+#   mysql> GRANT ALL PRIVILEGES ON *.* TO 'R_user'@'localhost' IDENTIFIED BY 'pass12345678';
+
+library(MetabolomiQCsR)
+MetabolomiQCsR.env$db$db <- "QC4MetabolomicsR"
+MetabolomiQCsR.env$db$user <- "R_user"
+MetabolomiQCsR.env$db$password <- "pass12345678"
+MetabolomiQCsR.env$db$host <- "127.0.0.1"
+
+setwd("./QC4Metabolomics/Shiny App")
+source("../init/init_db.R")
+
+shiny::runApp(launch.browser = T)
+```
+
+```{r Sample information}
+xml.path <- "Raw/Mzb1/ESI+"
+sample_info_pos <- list.files(path = xml.path, pattern = "sample_info.xml", 
+                              all.files = T, full.names = T, recursive = T)
+
+sample_info <- list(NULL)
+sample_info <- lapply(sample_info_pos, XML::xmlToDataFrame)
+
+#worklist_pos <- list.files(path = xml.path, pattern = "Worklist.xml", 
+#                              all.files = T, full.names = T, recursive = T)
+
+#worklist <- list(NULL)
+#worklist <- lapply(worklist_pos, XML::xmlToDataFrame)
 ```
