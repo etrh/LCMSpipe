@@ -1113,7 +1113,7 @@ source("../init/init_db.R")
 shiny::runApp(launch.browser = T)
 ```
 
-```{r Sample information}
+```{r Sample information and experiment metadata}
 xml.path <- "Raw/Mzb1/ESI+"
 sample_info_pos <- list.files(path = xml.path, pattern = "sample_info.xml", 
                               all.files = T, full.names = T, recursive = T)
@@ -1127,13 +1127,19 @@ sample_info <- lapply(sample_info_pos, XML::xmlToDataFrame)
 #worklist <- list(NULL)
 #worklist <- lapply(worklist_pos, XML::xmlToDataFrame)
 
-# XML nodes
-
-f <- XML::xmlParse(worklist_pos[1])
-ff <- getNodeSet(f, "//JobDataList")
-
 # Order of the run
 
-xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData") )
-xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//Name"))
+f <- XML::xmlParse(worklist_pos[1])
+#getNodeSet(f, "//JobDataList")
+#xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData") )
+
+job_data_list <- data.frame(
+  Name = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//Name"))$text,
+  InjectionVol = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//InjectionVolume"))$text,
+  AcqTime = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//AcqTime"))$text,
+  EquilibrationTime = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//EquilibrationTime"))$text,
+  SamplePosition = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//SamplePosition"))$text,
+  DilutionFactor = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//DilutionFactor"))$text,
+  AcqMethod = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//AcqMethod"))$text
+)
 ```
