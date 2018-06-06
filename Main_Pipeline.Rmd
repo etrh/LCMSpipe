@@ -1115,31 +1115,36 @@ shiny::runApp(launch.browser = T)
 
 ```{r Sample information and experiment metadata}
 xml.path <- "Raw/Mzb1/ESI+"
+
+## Sample information
+
 sample_info_pos <- list.files(path = xml.path, pattern = "sample_info.xml", 
                               all.files = T, full.names = T, recursive = T)
 
 sample_info <- list(NULL)
 sample_info <- lapply(sample_info_pos, XML::xmlToDataFrame)
 
-#worklist_pos <- list.files(path = xml.path, pattern = "Worklist.xml", 
-#                              all.files = T, full.names = T, recursive = T)
+## Job/experiment information/metadata
+
+worklist_pos <- list.files(path = xml.path, pattern = "Worklist.xml", 
+                              all.files = T, full.names = T, recursive = T)
 
 #worklist <- list(NULL)
 #worklist <- lapply(worklist_pos, XML::xmlToDataFrame)
 
-# Order of the run
-
-f <- XML::xmlParse(worklist_pos[1])
+#f <- XML::xmlParse(worklist_pos[1])
 #getNodeSet(f, "//JobDataList")
 #xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData") )
 
-job_data_list <- data.frame(
-  Name = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//Name"))$text,
-  InjectionVol = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//InjectionVolume"))$text,
-  AcqTime = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//AcqTime"))$text,
-  EquilibrationTime = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//EquilibrationTime"))$text,
-  SamplePosition = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//SamplePosition"))$text,
-  DilutionFactor = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//DilutionFactor"))$text,
-  AcqMethod = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//AcqMethod"))$text
-)
+worklist_xml <- lapply(worklist_pos, XML::xmlParse)
+experiment_metadata <- lapply(worklist_xml, function(f){
+data.frame(
+    Name = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//Name"))$text,
+    InjectionVol = xmlToDataFrame( getNodeSet(xmlRoot(f) ,"//JobData//InjectionVolume"))$text,
+    AcqTime = xmlToDataFrame( getNodeSet(xmlRoot(f) ,"//JobData//AcqTime"))$text,
+    EquilibrationTime = xmlToDataFrame( getNodeSet(xmlRoot(f), "//JobData//EquilibrationTime"))$text,
+    SamplePosition = xmlToDataFrame( getNodeSet(xmlRoot(f) ,"//JobData//SamplePosition"))$text,
+    DilutionFactor = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//DilutionFactor"))$text,
+    AcqMethod = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//AcqMethod"))$text
+)})
 ```
