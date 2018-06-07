@@ -1194,8 +1194,9 @@ experiment_metadata_main <- extract_worklist(main_worklist)
 
 ```
 
-```{r Mixture Model Normalization with metabomxtr}
-### https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/mixnorm_Vignette.pdf
+```{r Mixture Model Analysis and Normalization with metabomxtr}
+### The package is advertised for 'normally-distributed' metabolite abudances/intensities.
+
 ### We can use the peak intensity matrix that was generated for MetaboAnalyst
 ### However, samples should be in rows and metabolites in columns
 ### Two additional columns are needed to specify 'phenotype' group and 'batch' (run) number
@@ -1208,7 +1209,8 @@ names(metabomxtr_table)[grep(pattern = "group", x = names(metabomxtr_table))] <-
 
 ## log-transform intensity values (is this needed/recommended?)
 for(i in 2:length(metabomxtr_table)){metabomxtr_table[,i] <- as.numeric(as.character(metabomxtr_table[,i]))}
-metabomxtr_table[,-1] <- log2(metabomxtr_table[,-1])
+metabomxtr_table_not_transformed <- metabomxtr_table
+metabomxtr_table[,-1] <- log2(metabomxtr_table[,-1]) ### this results in 'errors' when running the mxtrmod function.. Probably not always the correct approach to transformation
 
 #metabomxtr has two main functions: mxtrmod and mxtrmodLRT. mxtrmod executes mixture models, taking as inputs response variable names, a model formula and a data object (a matrix of values with NA to indicate missingness or an ExpressionSet R object). It returns optimized parameter estimates and the corresponding negative log likelihood value. Parameter vectors α and β are estimated using maximum likelihood using the optimx package. By default, T is set to the minimum observed metabolite abundance.
 
@@ -1220,4 +1222,23 @@ metabomxtr_table_complete <- merge(sample_info_extracted, metabomxtr_table, by="
 names(metabomxtr_table_complete)[1] <- "SampleNames"
 head(metabomxtr_table_complete[,1:20])
 
+
+# these are only test runs and experiments, they might not make any sense, 
+# e.g. adding SampleNames to the model is senseless.
+# the model works better without SampleNames and Dilution
+test_model_full <- ~ as.factor(phenotype) | as.factor(phenotype) + as.character(SampleNames) + as.character(`Acquisition Time`) + 
+  as.numeric(as.character(Dilution)) + as.numeric(as.character(`Inj Vol (µl)`)) + as.character(`Sample Position`)
+
+test_model_reduced <- ~ 1 | as.character(SampleNames) + as.character(`Acquisition Time`) + 
+  as.numeric(as.character(Dilution)) + as.numeric(as.character(`Inj Vol (µl)`)) + as.character(`Sample Position`)
+
+metabolite_names <- names(metabomxtr_table_complete)[11:length(metabomxtr_table_complete)] ### length(metabomxtr_table_complete) should be most probably changed to a much smaller number. It does not seem to make any sense to use all detected features. Perhaps we should keep only those that are truly significant? It also seems that a high number of metabolites causes an error (or maybe the error caused by something else)
+
+test_run_full <- mxtrmod(ynames = metabolite_names, 
+                         mxtrModel = test_model, data = metabomxtr_table_complete)
+
+test_run_reduced <- mxtrmod(ynames = metabolite_names, mxtrModel = test_model_reduced,
+                            data = metabomxtr_table_complete, fullModel = test_model_full)
+
+mxtrmodLRT(test_run_full, test_run_reduced, adj = "BH")
 ```
