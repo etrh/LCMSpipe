@@ -1124,7 +1124,7 @@ shiny::runApp(launch.browser = T)
 ```{r Sample information and experiment metadata}
 xml.path <- "Raw/Mzb1/ESI+"
 
-## Sample information
+## Sample information / extracted from sample_info.xml files in .d folders ##
 
 sample_info_pos <- list.files(path = xml.path, pattern = "sample_info.xml", 
                               all.files = T, full.names = T, recursive = T)
@@ -1132,11 +1132,11 @@ sample_info_pos <- list.files(path = xml.path, pattern = "sample_info.xml",
 sample_info <- list(NULL)
 sample_info <- lapply(sample_info_pos, XML::xmlToDataFrame)
 
-sample_info[[1]] %>% 
-  dplyr::select(DisplayName, Value) %>% 
-  filter(DisplayName %in% c("Sample Name", "Sample Position", 
-                            "Method", "Inj Vol (µl)", "Equilib Time (min)", 
-                            "Dilution", "Acquisition Time", "Operator Name"))
+#sample_info[[1]] %>% 
+#  dplyr::select(DisplayName, Value) %>% 
+#  filter(DisplayName %in% c("Sample Name", "Sample Position", 
+#                            "Method", "Inj Vol (µl)", "Equilib Time (min)", 
+#                            "Dilution", "Acquisition Time", "Operator Name"))
 
 sample_info_extracted <- lapply(sample_info, function(exdata){
   exdata %>% 
@@ -1146,25 +1146,40 @@ sample_info_extracted <- lapply(sample_info, function(exdata){
                "Inj Vol (µl)", "Equilib Time (min)", "Dilution", 
                "Acquisition Time", "Operator Name"))})
 
-for(i in length(sample_info_extracted)){
+for(i in 1:length(sample_info_extracted)){
   names(sample_info_extracted)[i] <- sample_info_extracted[[i]]$Value[1]
+  names(sample_info_extracted[[i]])[2] <- sample_info_extracted[[i]]$Value[1]
 }
 
-## Job/experiment information/metadata
+sample_info_extracted <- Reduce(function(x, y) merge(x, y, all=TRUE, by = "DisplayName"), 
+                                sample_info_extracted) %>% t() %>% as.data.frame()
 
-worklist_pos <- list.files(path = xml.path, pattern = "Worklist.xml", 
+for(i in 1:length(sample_info_extracted)) { sample_info_extracted[,i] <- as.character(sample_info_extracted[,i]) }
+names(sample_info_extracted) <- sample_info_extracted[1,]
+sample_info_extracted <- sample_info_extracted[-1,]
+
+
+## Job/experiment information/metadata (Worklist files) ##
+
+worklist_pos <- list.files(path = xml.path, pattern = "Worklist.xml", ## Worklist.xml files in .d folders -- 
+                           ### these do not seem to be useful and consistent.. e.g. the order of running samples is outlined differently in each file!
                               all.files = T, full.names = T, recursive = T)
+
+main_worklist_file <- "Raw/Freezing_Exp_All/170726 Mrazici Experiment.wkl" ## these are the main worklist files found in the QTOF_WORKLIST folder and according to Karel should be the correct ones
+
 
 #worklist <- list(NULL)
 #worklist <- lapply(worklist_pos, XML::xmlToDataFrame)
-
 #f <- XML::xmlParse(worklist_pos[1])
 #getNodeSet(f, "//JobDataList")
 #xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData") )
 
+
 worklist_xml <- lapply(worklist_pos, XML::xmlParse)
-experiment_metadata <- lapply(worklist_xml, function(f){
-data.frame(
+main_worklist <- XML::xmlParse(main_worklist_file)
+
+extract_worklist <- function(f){
+  data.frame(
     Name = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//Name"))$text,
     InjectionVol = xmlToDataFrame( getNodeSet(xmlRoot(f) ,"//JobData//InjectionVolume"))$text,
     AcqTime = xmlToDataFrame( getNodeSet(xmlRoot(f) ,"//JobData//AcqTime"))$text,
@@ -1172,9 +1187,11 @@ data.frame(
     SamplePosition = xmlToDataFrame( getNodeSet(xmlRoot(f) ,"//JobData//SamplePosition"))$text,
     DilutionFactor = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//DilutionFactor"))$text,
     AcqMethod = xmlToDataFrame( getNodeSet(xmlRoot(f) , "//JobData//AcqMethod"))$text
-)})
+  )}
 
-### worklist table (experiment_metadata) doesn't seem to be useful and consistent.. The order of running samples in each file is different!
+experiment_metadata <- lapply(worklist_xml, FUN = extract_worklist)
+experiment_metadata_main <- extract_worklist(main_worklist)
+
 ```
 
 ```{r Mixture Model Normalization with metabomxtr}
@@ -1195,5 +1212,6 @@ metabomxtr_table[,-1] <- log2(metabomxtr_table[,-1])
 
 #metabomxtr has two main functions: mxtrmod and mxtrmodLRT. mxtrmod executes mixture models, taking as inputs response variable names, a model formula and a data object (a matrix of values with NA to indicate missingness or an ExpressionSet R object). It returns optimized parameter estimates and the corresponding negative log likelihood value. Parameter vectors α and β are estimated using maximum likelihood using the optimx package. By default, T is set to the minimum observed metabolite abundance.
 
-
+head(sample_info_extracted)
+head(metabomxtr_table)
 ```
