@@ -1213,5 +1213,11 @@ metabomxtr_table[,-1] <- log2(metabomxtr_table[,-1])
 #metabomxtr has two main functions: mxtrmod and mxtrmodLRT. mxtrmod executes mixture models, taking as inputs response variable names, a model formula and a data object (a matrix of values with NA to indicate missingness or an ExpressionSet R object). It returns optimized parameter estimates and the corresponding negative log likelihood value. Parameter vectors α and β are estimated using maximum likelihood using the optimx package. By default, T is set to the minimum observed metabolite abundance.
 
 head(sample_info_extracted)
-head(metabomxtr_table)
+head(metabomxtr_table[,1:5])
+
+# make sure sample names are row.names and are in the same format in both datasets
+metabomxtr_table_complete <- merge(sample_info_extracted, metabomxtr_table, by="row.names")
+names(metabomxtr_table_complete)[1] <- "SampleNames"
+head(metabomxtr_table_complete[,1:20])
+
 ```
