@@ -1194,8 +1194,9 @@ experiment_metadata_main <- extract_worklist(main_worklist)
 
 ```
 
-```{r Mixture Model Analysis and Normalization with metabomxtr}
+```{r Dealing with missing values, and mixture model analysis and normalization with metabomxtr}
 ### The package is advertised for 'normally-distributed' metabolite abudances/intensities.
+### Seemingly, this package heavily depends on "NA" values and a certain number of NA values are required in each metabolite column, if there are no NA values, it does not work!
 
 ### The example in the vignette reads: Each of the metabolites [in metabdata] contains missing values and the data look fairly normal, so mixture model analysis seems appropriate.
 
@@ -1248,6 +1249,8 @@ test_model_reduced <- ~ 1 | as.character(SampleNames) + as.character(`Acquisitio
 
 metabolite_names <- names(metabomxtr_table_complete)[11:length(metabomxtr_table_complete)] ### length(metabomxtr_table_complete) should be most probably changed to a much smaller number. It does not seem to make any sense to use 'all' detected features. Perhaps we should keep only those that are truly significant or those features that are of interest (after metabolite detection and statistical analysis). It also seems that a high number of metabolites causes an error (or maybe the error caused by something else)
 
+# a better option would be something like this: metabolite_names <- names(which(colSums(is.na(metabomxtr_table_complete)) >= 5))
+
 test_run_full <- mxtrmod(ynames = metabolite_names, 
                          mxtrModel = test_model_full, data = metabomxtr_table_complete)
 
@@ -1297,4 +1300,5 @@ finalResultTable <- data.frame(Metabolite = fullModelResults$.id,
                                second_phenotype.mean = second_phenotype.mean,
                                phen.mean.diff = phen.mean.diff,
                                FDR.Adj.P = round(finalResult$adjP,digits=4))
+finalResultTable
 ```
