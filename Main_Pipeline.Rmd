@@ -1197,6 +1197,7 @@ experiment_metadata_main <- extract_worklist(main_worklist)
 ```{r Dealing with missing values, and mixture model analysis and normalization with metabomxtr}
 ### The package is advertised for 'normally-distributed' metabolite abudances/intensities.
 ### Seemingly, this package heavily depends on "NA" values and a certain number of NA values are required in each metabolite column, if there are no NA values, it does not work!
+### It also does not work well with 3 sample groups. 2 is the maximum
 
 ### The example in the vignette reads: Each of the metabolites [in metabdata] contains missing values and the data look fairly normal, so mixture model analysis seems appropriate.
 
