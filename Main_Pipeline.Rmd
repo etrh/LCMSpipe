@@ -1197,6 +1197,8 @@ experiment_metadata_main <- extract_worklist(main_worklist)
 ```{r Mixture Model Analysis and Normalization with metabomxtr}
 ### The package is advertised for 'normally-distributed' metabolite abudances/intensities.
 
+### The example in the vignette reads: Each of the metabolites [in metabdata] contains missing values and the data look fairly normal, so mixture model analysis seems appropriate.
+
 ### We can use the peak intensity matrix that was generated for MetaboAnalyst
 ### However, samples should be in rows and metabolites in columns
 ### Two additional columns are needed to specify 'phenotype' group and 'batch' (run) number
@@ -1226,19 +1228,73 @@ head(metabomxtr_table_complete[,1:20])
 # these are only test runs and experiments, they might not make any sense, 
 # e.g. adding SampleNames to the model is senseless.
 # the model works better without SampleNames and Dilution
-test_model_full <- ~ as.factor(phenotype) | as.factor(phenotype) + as.character(SampleNames) + as.character(`Acquisition Time`) + 
+
+# Phenotype will be usually our main predictor of interest. Our goal will be to determine whether one group has significantly different metabolite leveles compared to the other group.
+
+class(metabomxtr_table_complete$phenotype) # must return factor
+levels(metabomxtr_table_complete$phenotype)
+metabomxtr_table_complete$phenotype <- relevel(metabomxtr_table_complete$phenotype, ref="WT") # set the reference group
+table(metabomxtr_table_complete$phenotype)
+
+# Next, we need to specify the full mixture model. This should be of the form ∼ x1+x2...|z1+z2..., where x’s represent covariates modeling metabolite presence/absence (discrete portion), and z’s are covariates modeling the mean of observed values (continuous portion). The predictor of interest should be included in both the discrete and continuous portions of the full model. In addition, we’ll control for variables such as age, gestational age, sample storage time, and parity in the continuous portion.
+
+test_model_full <- ~ phenotype | phenotype + as.character(SampleNames) + as.character(`Acquisition Time`) + 
   as.numeric(as.character(Dilution)) + as.numeric(as.character(`Inj Vol (µl)`)) + as.character(`Sample Position`)
 
 test_model_reduced <- ~ 1 | as.character(SampleNames) + as.character(`Acquisition Time`) + 
   as.numeric(as.character(Dilution)) + as.numeric(as.character(`Inj Vol (µl)`)) + as.character(`Sample Position`)
 
-metabolite_names <- names(metabomxtr_table_complete)[11:length(metabomxtr_table_complete)] ### length(metabomxtr_table_complete) should be most probably changed to a much smaller number. It does not seem to make any sense to use all detected features. Perhaps we should keep only those that are truly significant? It also seems that a high number of metabolites causes an error (or maybe the error caused by something else)
+# adding 'character' variables to the model results in a model without 'xInt'...
+
+metabolite_names <- names(metabomxtr_table_complete)[11:length(metabomxtr_table_complete)] ### length(metabomxtr_table_complete) should be most probably changed to a much smaller number. It does not seem to make any sense to use 'all' detected features. Perhaps we should keep only those that are truly significant or those features that are of interest (after metabolite detection and statistical analysis). It also seems that a high number of metabolites causes an error (or maybe the error caused by something else)
 
 test_run_full <- mxtrmod(ynames = metabolite_names, 
-                         mxtrModel = test_model, data = metabomxtr_table_complete)
+                         mxtrModel = test_model_full, data = metabomxtr_table_complete)
 
 test_run_reduced <- mxtrmod(ynames = metabolite_names, mxtrModel = test_model_reduced,
-                            data = metabomxtr_table_complete, fullModel = test_model_full)
+                            data = metabomxtr_table_complete, fullModel = test_model_full) # note the importance of specifying the fullModel parameter when running reduced models, which ensures that if model covariates have missing values, both full and reduced model results are based on the same set of observations. 
 
-mxtrmodLRT(test_run_full, test_run_reduced, adj = "BH")
+# In the output data frame, 
+# .id column indicates metabolite, 
+# columns beginning with x’s are parameter estimates for the discrete portion of the model, 
+# columns beginning with z’s are parameter estimates for the continuous portion, 
+# sigma is the variance of observed values, 
+# method is the optimization algorithm used, 
+# conv indicates whether the model converged (0=convergence), 
+# negLL is the negative log likelihood, 
+# nObs is the number of observations used.
+
+# the significance of full vs. reduced models can be examined using nested likelihood ratio chi-squared tests
+finalResult <- mxtrmodLRT(test_run_full, test_run_reduced, adj = "BH")
+
+# negLLFull is the negative log likelihood of the full model, 
+# negLLRed is the negative log likelihood of the reduced model, 
+# chisq is the test statistic
+# low p-values = metabolite levels are significantly different between groups
+
+## result table
+
+# calculate the estimated proportion of metabolites present for each phenotype group
+
+fullModelResults <- test_run_full
+
+first_phenotype <- round(exp(fullModelResults$xInt + fullModelResults$x_phenotypeFrozen) / 
+                        (1 + exp(fullModelResults$xInt + fullModelResults$x_phenotypeFrozen)), digits = 2)
+second_phenotype <- round(exp(fullModelResults$xInt) / (1+exp(fullModelResults$xInt)), digits = 2)
+
+# calculate the estimated mean metabolite levels by phenotype group, and estimated mean difference
+
+first_phenotype.mean <- round(fullModelResults$zInt+fullModelResults$z_phenotypeFrozen,digits=2)
+second_phenotype.mean <- round(fullModelResults$zInt,digits=2)
+phen.mean.diff <- round(fullModelResults$z_phenotypeFrozen,digits=2)
+
+# combine with metabolite names and FDR-adjusted p-values.
+
+finalResultTable <- data.frame(Metabolite = fullModelResults$.id,
+                               first_phenotype = first_phenotype,
+                               second_phenotype = second_phenotype,
+                               first_phenotype.mean = first_phenotype.mean,
+                               second_phenotype.mean = second_phenotype.mean,
+                               phen.mean.diff = phen.mean.diff,
+                               FDR.Adj.P = round(finalResult$adjP,digits=4))
 ```
