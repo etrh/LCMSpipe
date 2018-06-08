@@ -1194,12 +1194,18 @@ experiment_metadata_main <- extract_worklist(main_worklist)
 
 ```
 
-```{r Dealing with missing values, and mixture model analysis and normalization with metabomxtr}
+```{r Missing data treatment; mixture model analysis with metabomxtr}
+# An underused approach for metabolite-by-metabolite analysis is the Bernoulli/lognormal mixture model proposed by Moulton and Halsey (1995). This method simultaneously estimates parameters modeling the probability of non-missing response and the mean of observed values. Imputation is not required, and instead ‘missingness’ is explicitly modeled as either true absence or presence below detectability, consistent with non-targeted metabolomics technology.
+
+# The R package metabomxtr has been developed to facilitate mixture-model analysis of non-targeted metabolomics data in which only a portion of samples have quantifiable abundance for certain metabolites.
+
 ### The package is advertised for 'normally-distributed' metabolite abudances/intensities.
 ### Seemingly, this package heavily depends on "NA" values and a certain number of NA values are required in each metabolite column, if there are no NA values, it does not work!
 ### It also does not work well with 3 sample groups. 2 is the maximum
 
 ### The example in the vignette reads: Each of the metabolites [in metabdata] contains missing values and the data look fairly normal, so mixture model analysis seems appropriate.
+
+# Missing values can be due to the true absence of the metabolite in the sample or presence at a level below detectability. Mixture model analysis can formally account for metabolite missingness due to absence or undetectability.
 
 ### We can use the peak intensity matrix that was generated for MetaboAnalyst
 ### However, samples should be in rows and metabolites in columns
@@ -1240,6 +1246,8 @@ table(metabomxtr_table_complete$phenotype)
 
 # Next, we need to specify the full mixture model. This should be of the form ∼ x1+x2...|z1+z2..., where x’s represent covariates modeling metabolite presence/absence (discrete portion), and z’s are covariates modeling the mean of observed values (continuous portion). The predictor of interest should be included in both the discrete and continuous portions of the full model. In addition, we’ll control for variables such as age, gestational age, sample storage time, and parity in the continuous portion.
 
+# remember removeMissingLevels and removeAllMissingCatVar when including categorical variables in the model
+
 test_model_full <- ~ phenotype | phenotype + as.character(SampleNames) + as.character(`Acquisition Time`) + 
   as.numeric(as.character(Dilution)) + as.numeric(as.character(`Inj Vol (µl)`)) + as.character(`Sample Position`)
 
@@ -1248,9 +1256,12 @@ test_model_reduced <- ~ 1 | as.character(SampleNames) + as.character(`Acquisitio
 
 # adding 'character' variables to the model results in a model without 'xInt'...
 
-metabolite_names <- names(metabomxtr_table_complete)[11:length(metabomxtr_table_complete)] ### length(metabomxtr_table_complete) should be most probably changed to a much smaller number. It does not seem to make any sense to use 'all' detected features. Perhaps we should keep only those that are truly significant or those features that are of interest (after metabolite detection and statistical analysis). It also seems that a high number of metabolites causes an error (or maybe the error caused by something else)
+# metabolite_names <- names(metabomxtr_table_complete)[11:length(metabomxtr_table_complete)]
+### length(metabomxtr_table_complete) should be most probably changed to a much smaller number. It does not seem to make any sense to use 'all' detected features. Perhaps we should keep only those that are truly significant or those features that are of interest (after metabolite detection and statistical analysis). It also seems that a high number of metabolites causes an error (or maybe the error caused by something else)
 
-# a better option would be something like this: metabolite_names <- names(which(colSums(is.na(metabomxtr_table_complete)) >= 5))
+# a better option would be something like this:
+required_NA_proportion <- ceiling(nrow(metabomxtr_table_complete) * 0.2)
+metabolite_names <- names(which(colSums(is.na(metabomxtr_table_complete)) >= required_NA_proportion))
 
 test_run_full <- mxtrmod(ynames = metabolite_names, 
                          mxtrModel = test_model_full, data = metabomxtr_table_complete)
@@ -1281,16 +1292,17 @@ finalResult <- mxtrmodLRT(test_run_full, test_run_reduced, adj = "BH")
 # calculate the estimated proportion of metabolites present for each phenotype group
 
 fullModelResults <- test_run_full
-
-first_phenotype <- round(exp(fullModelResults$xInt + fullModelResults$x_phenotypeFrozen) / 
-                        (1 + exp(fullModelResults$xInt + fullModelResults$x_phenotypeFrozen)), digits = 2)
+x_phen <- grep("x_phenotype", names(fullModelResults), value = T)
+z_phen <- grep("z_phenotype", names(fullModelResults), value = T)
+first_phenotype <- round(exp(fullModelResults$xInt + fullModelResults[x_phen]) / 
+                        (1 + exp(fullModelResults$xInt + fullModelResults[x_phen])), digits = 2)
 second_phenotype <- round(exp(fullModelResults$xInt) / (1+exp(fullModelResults$xInt)), digits = 2)
 
 # calculate the estimated mean metabolite levels by phenotype group, and estimated mean difference
 
-first_phenotype.mean <- round(fullModelResults$zInt+fullModelResults$z_phenotypeFrozen,digits=2)
-second_phenotype.mean <- round(fullModelResults$zInt,digits=2)
-phen.mean.diff <- round(fullModelResults$z_phenotypeFrozen,digits=2)
+first_phenotype.mean <- round(fullModelResults$zInt + fullModelResults[z_phen], digits = 2)
+second_phenotype.mean <- round(fullModelResults$zInt, digits=2)
+phen.mean.diff <- round(fullModelResults[z_phen], digits=2)
 
 # combine with metabolite names and FDR-adjusted p-values.
 
@@ -1302,4 +1314,41 @@ finalResultTable <- data.frame(Metabolite = fullModelResults$.id,
                                phen.mean.diff = phen.mean.diff,
                                FDR.Adj.P = round(finalResult$adjP,digits=4))
 finalResultTable
+```
+
+```{r Normalization with mixture models}
+# Controlling technical variability in metabolite abundance, or normalization, is a critical step in the analysis and interpretation of non-targeted gas-chromatography/mass-spectrometry (GC/MS) data. In large scale metabolomics studies requiring sample processing in many analytic batches, technical artifacts due to batch and run-order within batch are common. In these cases, repeated assays of a set of control samples may be used to estimate and account for these artifacts. The metabomxtr package implements a mixture model normalization approach via the function mixnorm for studies implementing this quality control measure. Based on control sample variability, mixnorm allows for per-metabolite modeling of both batch and run-order effects, while allowing for bach specific thresholds of metabolite detectability.
+
+# euMetabCData is a data frame containing GC/MS data from separate mom and baby control pools. Control pool aliquots were run at the beginning, middle and end of each batch with placement indicated by -1, -2 and -3 appended to the sample name, respectively.
+
+# select metabolites of interest
+required_NA_proportion <- ceiling(nrow(metabomxtr_table_complete) * 0.2)
+metabolite_names <- names(which(colSums(is.na(metabomxtr_table_complete)) >= required_NA_proportion))
+ynames <- c("M57.97570T44.13454", "M57.97464T1158.43262",
+            "M59.01369T47.62086", "M59.97107T44.23310")
+
+## in progress...
+# https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/mixnorm_Vignette.pdf
+# https://bioconductor.org/packages/release/bioc/vignettes/metabomxtr/inst/doc/mixnorm_Vignette.R
+```
+
+```{r Outlier detection}
+outlier_info <- metabomxtr::addOutlierInfo(metab.col = "M310.09596T61.92001", metabomxtr_table_complete, outlier.sd.thresh = 2)
+outlier_info[c("SampleNames","M310.09596T61.92001", "outlier")]
+```
+
+```{Normalization by internal standard}
+# normalizeByInternalStandard requires a very stricit data format
+# first column = metabolite names
+# first row = volume (e.g. 4ul)
+
+metaboanalyst_df <- metaboanalyst_dat[-1,] %>% as.data.frame # remove group labels in the first row
+metaboanalyst_df$Name <- rownames(metaboanalyst_df) # add metabolite names as a column
+len_df <- length(metaboanalyst_df)
+for(i in 1:len_df) {metaboanalyst_df[,i] <- as.character(metaboanalyst_df[,i])}
+metaboanalyst_df <- metaboanalyst_df[,c(len_df, 1:len_df-1)] # move the name column to the beginning of the df
+metaboanalyst_df <- rbind(c("Replicates", rep("4ul", len_df-1)),metaboanalyst_df) # sample volume row
+metaboanalyst_df_internal_normalized <- Metab::normalizeByInternalStandard(inputData = metaboanalyst_df,
+                                                                           internalStandard = "M71.01388T51.05411",
+                                                                           save = F)
 ```
