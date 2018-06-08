@@ -1351,4 +1351,6 @@ metaboanalyst_df <- rbind(c("Replicates", rep("4ul", len_df-1)),metaboanalyst_df
 metaboanalyst_df_internal_normalized <- Metab::normalizeByInternalStandard(inputData = metaboanalyst_df,
                                                                            internalStandard = "M71.01388T51.05411",
                                                                            save = F)
+
+# Metab also offers a function named Metab::removeFalsePositives. It does not seem to be anything special. In general MetaboAnalyst is more sophisticated and we may not need to use this code chunk at all.
 ```
