@@ -1347,10 +1347,11 @@ metaboanalyst_df$Name <- rownames(metaboanalyst_df) # add metabolite names as a 
 len_df <- length(metaboanalyst_df)
 for(i in 1:len_df) {metaboanalyst_df[,i] <- as.character(metaboanalyst_df[,i])}
 metaboanalyst_df <- metaboanalyst_df[,c(len_df, 1:len_df-1)] # move the name column to the beginning of the df
-metaboanalyst_df <- rbind(c("Replicates", rep("4ul", len_df-1)),metaboanalyst_df) # sample volume row / 
-#injection_vol <- sample_info_extracted[,"Inj Vol (µl)", drop = F][rownames(sample_info_extracted[,"Inj Vol (µl)", drop = F]) %in% #names(metaboanalyst_df)[-1],]
-#injection_vol <- injection_vol[ order(names(metaboanalyst_df)[-1]), ]
-#rbind(c("Replicates", injection_vol),metaboanalyst_df)
+
+injection_vol <- sample_info_extracted[,"Inj Vol (µl)", drop = F][rownames(sample_info_extracted[,"Inj Vol (µl)", drop = F]) %in% names(metaboanalyst_df)[-1], , drop = FALSE]
+injection_vol <- injection_vol[ order(names(metaboanalyst_df)[-1]), ] %>% paste0("ul")
+
+metaboanalyst_df <- rbind(c("Replicates", injection_vol),metaboanalyst_df) # sample volume row
 
 metaboanalyst_df_internal_normalized <- Metab::normalizeByInternalStandard(inputData = metaboanalyst_df,
                                                                            internalStandard = "M71.01388T51.05411",
