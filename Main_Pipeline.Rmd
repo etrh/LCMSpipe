@@ -36,7 +36,7 @@ pacman::p_load("Rserve", "som", "ROCR", "RJSONIO", "Cairo",
                "GlobalAncova", "Rgraphviz", "KEGGgraph", 
                "SSPA", "sva", "car", "fitdistrplus", 
                "R.utils", "metabomxtr", "rvest",
-               "GO.db", "WGCNA")
+               "GO.db", "WGCNA", "SDAMS")
 
 install.necessary.packages <- function(pkg){
     new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
@@ -1358,4 +1358,37 @@ metaboanalyst_df_internal_normalized <- Metab::normalizeByInternalStandard(input
                                                                            save = F)
 
 # Metab also offers a function named Metab::removeFalsePositives. It does not seem to be anything special. In general MetaboAnalyst is more sophisticated and we may not need to use this code chunk at all.
+```
+
+```{r Semi-parametric differential abundance analysis of non-normally distributed metabolomics data}
+# The data may contain a large fraction of zero values and non-zero part may not be normally distributed. SDAMS considers a two-part semi-parametric model, a logistic regression for the zero proportion and a semi-parametric log-linear model for the non-zero values. A kernel-smoothed likelihood method is proposed to estimate regression coefficients in the two-part model and a likelihood ratio test is constructed for differential abundant analysis.
+
+write.csv(x = metaboanalyst_dat[-1,], file = "feature.csv")
+write.csv(x = metaboanalyst_dat[1,], file = "group.csv")
+exp_df <- SDAMS::createSEFromCSV("feature_SDAMS_working_example.csv", "group_SDAMS_working_example.csv")
+
+## easier one-liner approach
+exp_mat <- SDAMS::createSEFromMatrix(metaboanalyst_dat[-1,], as.matrix(metaboanalyst_dat[1,]))
+head(assay(exp_mat)[,1:10])
+colData(exp_mat)$grouping
+
+## run SDA / perform differential abundance analyais
+SDA_results <- SDAMS::SDA(exp_df)
+head(SDA_results$gamma) # The covariate effect on the fraction of zero values for feature g is γg. First element of this vector is for the first feature, second one for the second feature, etc.
+head(SDA_results$pv_gamma) # p-values calculated from likelihood ratio test
+
+# The corresponding hypothesis is H0: γg = 0 vs. H1: γg =/= 0.
+
+head(SDA_results$qv_gamma) # results for γg
+
+# The model parameter βg is the log fold change in the non-zero abundance comparing different values of the single group covariate for feature g. The corresponding two-sided hypothesis is H0: βg = 0 vs. H1: βg =/= 0. Again, SDA will return p-values and adjusted p-values(q-values) for parameter βg, and they are stored in pv_beta and qv_beta respectively.
+
+head(SDA_results$beta)
+head(SDA_results$pv_beta)
+head(SDA_results$qv_beta)
+
+head(SDA_results$pv_2part)
+head(SDA_results$qv_2part)
+
+head(SDA_results$feat.names) # feature names
 ```
