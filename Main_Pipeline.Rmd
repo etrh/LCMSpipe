@@ -442,6 +442,7 @@ plot(tTSNE.features$Y, main = "T-distributed Stochastic Neighbor Embedding (tSNE
 plot(tTSNE.samples$Y, main="T-distributed Stochastic Neighbor Embedding (tSNE)\nSamples", col=cols, pch=16, cex=3)
 ```
 
+
 ```{r Metabolite Identification using MassBank of North America}
 significant_features_mz <- c(902.433, 532.044, 122.456) ### this list comes from prior statistical analysis
 identified <- list(NULL)
@@ -468,6 +469,7 @@ identified[[1]]$compound[[1]]$metaData[[1]]
 #utils::URLdecode()
 ```
 
+
 ```{r Metabolite identification using Metlin}
 significant_features_mz <- c(418.2931, 540.29)
 mz_tolerance_ppm <- 5
@@ -487,6 +489,27 @@ for(i in length(significant_features_mz)){
   print(head(metlin_res_tbl[[i]][[1]]))
 }
 ```
+
+
+```{r Metabolite identification using multiple databases}
+databases <- c("pubchem", "hmdb", "lipidmaps",
+               "flavonoidviewer", "knapsack",
+               "kegg", "pep1000", "exmassdb")
+
+mz_tolerance = 0.5
+target_masses = c(102.3201, 452.02)
+hits <- list(NULL)
+
+for(i in 1:length(target_masses)){
+  searches <- paste0("http://webs2.kazusa.or.jp/mfsearcher/", databases, "/mass?targetMs=", target_masses[i], "&margin=", mz_tolerance)
+  search_for_hits <- lapply(searches, FUN = read.csv, sep = "\t", header = FALSE,
+                            col.names = c("Database", "Molecular.Formula", "DBE", "Formula.Weight", "ID.in.DB", "Description"))
+  hits_merged <- Reduce(function(x, y) rbind(x, y), search_for_hits)
+  hits[[i]] <- hits_merged
+  rm(hits_merged)
+}
+```
+
 
 Processing with peakML  
 ```{r PeakML}
