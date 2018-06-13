@@ -13,6 +13,8 @@ On UNIX-based systems you will first need to ensure that the following requireme
 ```{r Setup, include=FALSE}
 # # # # - - - - IMPORTANT: make sure you have the latest version of R installed - - - - # # # #
 
+# system("echo 'R_MAX_NUM_DLLS=500' > $HOME/.Renviron") ### do this only if you get the 'Maximal number of DLLs reached' error
+
 update.packages()
 #update.packages(repos = "https://cloud.r-project.org/")
 
@@ -24,27 +26,27 @@ if(!require(xcms)){biocLite("xcms", dependencies = TRUE)}
 if(!require(CAMERA)){biocLite("CAMERA", dependencies = TRUE)}
 if(!require(IPO)){biocLite("IPO", dependencies = TRUE)}
 
-#Development versions of MSnbase and xcms
+# Development versions of MSnbase and xcms
 #if(!require(MSnbase)){biocLite("lgatto/MSnbase")}
 #if(!require(xcms)){devtools::install_github("sneumann/xcms", ref = "xcms3")}
 
-necessary_packages <- c("devtools", "ROCS", "rJava", "plotly", "ptw", "tcltk2", "pca3d", "imager")
+pacman::p_install("Rserve", "som", "ROCR", "RJSONIO", "Cairo", 
+                  "pheatmap", "lattice", "pROC", "ellipse", 
+                  "scatterplot3d", "siggenes", "globaltest", 
+                  "GlobalAncova", "Rgraphviz", "KEGGgraph", 
+                  "SSPA", "sva", "car", "fitdistrplus", 
+                  "R.utils", "metabomxtr", "rvest",
+                  "GO.db", "WGCNA", "SDAMS", "devtools", 
+                  "ROCS", "rJava", "plotly", "ptw", 
+                  "tcltk2", "pca3d", "imager", 
+                  character.only = TRUE)
 
-pacman::p_load("Rserve", "som", "ROCR", "RJSONIO", "Cairo", 
-               "pheatmap", "lattice", "pROC", "ellipse", 
-               "scatterplot3d", "siggenes", "globaltest", 
-               "GlobalAncova", "Rgraphviz", "KEGGgraph", 
-               "SSPA", "sva", "car", "fitdistrplus", 
-               "R.utils", "metabomxtr", "rvest",
-               "GO.db", "WGCNA", "SDAMS")
+#install.necessary.packages <- function(pkg){
+#    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+#    if (length(new.pkg)) install.packages(new.pkg)
+#}
 
-install.necessary.packages <- function(pkg){
-    new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
-    if (length(new.pkg)) install.packages(new.pkg)
-}
-
-install.necessary.packages(necessary_packages)
-#install.necessary.packages(required_by_metaboanalyst)
+#install.necessary.packages(necessary_packages)
 
 if(!require(MetaboAnalystR)){devtools::install_github("xia-lab/MetaboAnalystR", 
                                                       build_vignettes = TRUE)}
@@ -74,15 +76,15 @@ library(plotly)
 library(rJava)
 ```
 
-```{r Convert data}
+```{r Convert Agilent data to mzML}
 'msconvert *.d -o mzML'
 ```
 
 ```{r Load data, include=FALSE}
-path.pos <- "data/Rik/ESI+" ####path to converted mzXML files
+path.pos <- "data/Rik/ESI+" #### path to converted positive mzML files
 path.neg <- "data/Rik/ESI-"
 
-###Creating sub-directories for samples/batches are allowed and recommended
+### Creating sub-directories for samples/batches are allowed and recommended
 pos.mzml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzML")
 pos.mzml
 
@@ -268,7 +270,6 @@ xsg.gaus.neg <- fillPeaks(xsg.gaus.neg)
 #xsg.obw <- fillPeaks(xsg.obw)
 ```
 
-
 ```{r QC}
 
 ###intensity
@@ -326,7 +327,6 @@ peaks(xsg.gaus.neg)[1:25,]
 dim(xsg.gaus.neg@peaks)
 ```
 
-
 ‘diffreport’ computes Welch's two-sample t-statistic for each analyte and ranks them by p-value. In brief, it performs univariate analysis on our peaks.  
 Q: When using 'diffreport', it is possible to include three sample classes (or even many more) by defining the class1/class2 arguments as c("sample2","sample3"). Does that, however, have any impact on the final result? In brief, is there a difference between `class1=c("Mouse1", "Mouse2"), class2="Mouse5"` and `class1="Mouse1", class2=c("Mouse2","Mouse5")`  
 ```{r Extracting ion chromatograms for significant ions and reporting the most statistically significant differences in analyte intensities / A report showing the most significant differences between two sets of samples, message=FALSE}
@@ -366,7 +366,6 @@ for(i in 1:length(eic)) {
   im[[i]] <- load.image(eic[i])
   plot(im[[i]])
   }
-
 ```
 
 
