@@ -440,6 +440,12 @@ tTSNE.samples <- Rtsne(t(t), perplexity = 4)
 plot(tICA$S, col=cols, cex=2, pch=16, main="Independent Component Analysis (ICA)\nSamples")
 plot(tTSNE.features$Y, main = "T-distributed Stochastic Neighbor Embedding (tSNE)\nFeatures")
 plot(tTSNE.samples$Y, main="T-distributed Stochastic Neighbor Embedding (tSNE)\nSamples", col=cols, pch=16, cex=3)
+
+# MetaboDiff::tsne_plot()
+# https://towardsdatascience.com/use-of-t-sne-to-reduce-the-dimensionality-of-metabolomics-datasets-f8a36120ca32
+# https://distill.pub/2016/misread-tsne/#citation
+# https://medium.com/@danielcanueto/validation-of-the-benefits-of-use-of-t-sne-in-metabolomics-studies-5018253b8173
+# https://medium.com/@TheDataGyan/dimensionality-reduction-with-pca-and-t-sne-in-r-2715683819
 ```
 
 
@@ -1413,4 +1419,11 @@ head(SDA_results$pv_2part)
 head(SDA_results$qv_2part)
 
 head(SDA_results$feat.names) # feature names
+```
+
+```{r Identification of secondary metabolites}
+# http://www.northenlab.org/research/secondary-metabolites/
+# doi.org/10.1021/ac5014783
+# http://facultyweb.mga.edu/yingfeng.wang/Assets/midas/midas.html
+download.file("http://facultyweb.mga.edu/yingfeng.wang/research/metabolomics/midas/MIDAS.zip")
 ```
