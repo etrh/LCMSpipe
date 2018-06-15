@@ -580,16 +580,17 @@ length(mzs_by_file)
 
 bpis <- chromatogram(raw_data, aggregationFun = "max") ## Get the base peak chromatograms. This reads data from the files.
 tic <- chromatogram(raw_data, aggregationFun = "sum") ## TIC (Total Ion Current)
-group_colors <- brewer.pal(3, "Set1")[1:2] ## Define colors for the groups in the data
-names(group_colors) <- c("Rik", "WT")
+sample_groups <- unique(pheno_data$sample_group)
+group_colors <- brewer.pal(9, "Set1")[1:length(sample_groups)] ## Define colors for the groups in the data
+names(group_colors) <- sample_groups
 
 dir.create("QC")
-png("QC/01 - BPC.png", width = 7, height = 7, units = "in", res = 600)
+png("QC/01 - BPC.png", width = 7, height = 7, units = "in", res = 1200)
 plot(bpis, col = group_colors[raw_data$sample_group], main = "Base Peak Chromatogram (BPC)")
 legend("topleft", col = group_colors, legend = names(group_colors), lty = 1)
 dev.off()
 
-png("QC/02 - TIC.png", width = 7, height = 7, units = "in", res = 600)
+png("QC/02 - TIC.png", width = 7, height = 7, units = "in", res = 1200)
 plot(tic, col = group_colors[raw_data$sample_group], main = "Total Ion Current (TIC)")
 legend("topleft", col = group_colors, legend = names(group_colors), lty = 1)
 dev.off()
@@ -615,8 +616,9 @@ dev.off()
 
 
 ## Define the rt and m/z range of the peak area
-rtr <- c(600, 700)
-mzr <- c(189, 192)
+rtr <- c(520, 540) ### Testosterone 13C (C16[13C]3H28O2) is at 8.8 min
+mzr <- c(292.13, 292.26) ### Mass of Testosterone 13C (C16[13C]3H28O2) is 292.21899
+
 ## extract the chromatogram and inspect the peakwidth and set the peak picking parameter accordingly
 chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
 png(paste0("QC/04 - EIC. ", "mz_", mzr[1], "-", mzr[2], "_-_RT_", rtr[1], "-", rtr[2], ".png"),
@@ -628,7 +630,54 @@ dev.off()
 
 #Note that Chromatogram objects extracted by the chromatogram method contain an NA value if in a certain scan (i.e. for a specific retention time) no signal was measured in the respective mz range. This is reflected by the lines not being drawn as continuous lines in the plot above.
 
+# # # # # # #
+# A small shiny application to interactively plot EICs
 
+shiny_EIC <- function(){
+  shinyApp(
+  ui = fluidPage(
+    titlePanel("EIC"),
+    
+    sidebarLayout(
+      sidebarPanel(
+        
+        fluidRow(
+          column(3, 
+          shiny::numericInput(inputId = "mz_min", label = "m/z min", value = 225.12),
+          shiny::numericInput(inputId = "mz_max", label = "m/z max", value = 225.5)
+          ),
+
+          column(3, 
+          shiny::numericInput(inputId = "rt_min", label = "RT min", value = 200),
+          shiny::numericInput(inputId = "rt_max", label = "RT max", value = 210)
+          )
+        )
+      ),
+      
+      mainPanel(width = 12,
+        plotOutput(outputId = "EICplot", height = 850)
+        
+      )
+    )
+  ), 
+  
+  server = function(input, output) {
+    output$EICplot <- renderPlot({
+      
+      chr_raw <- xcms::chromatogram(raw_data, mz = c(input$mz_min, input$mz_max), rt = c(input$rt_min, input$rt_max))
+      plot(chr_raw, col = group_colors[chr_raw$sample_group], 
+           main = paste0("EIC. m/z: ", mzr[1], "-", mzr[2], " | RT: ", rtr[1], "-", rtr[2]))
+      legend("topleft", col = group_colors, legend = names(group_colors), lty = 1)
+      
+    })
+    
+  }
+)
+}
+
+
+
+# # # # # # #
 
 ## For the ppm parameter we extract the full MS data (intensity, retention time and m/z values) corresponding to the above peak.
 ## To this end we first filter the raw object by retention time, then by m/z and finally plot the object with type = "XIC" to produce the plot below.
@@ -1426,4 +1475,9 @@ head(SDA_results$feat.names) # feature names
 # doi.org/10.1021/ac5014783
 # http://facultyweb.mga.edu/yingfeng.wang/Assets/midas/midas.html
 download.file("http://facultyweb.mga.edu/yingfeng.wang/research/metabolomics/midas/MIDAS.zip")
+```
+
+```{r Multi-batch integration}
+# https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5570768/
+# doi:  10.1007/s11306-017-1248-1
 ```
