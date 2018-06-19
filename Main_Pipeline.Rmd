@@ -1169,6 +1169,7 @@ negative_rule <- as.data.frame(readxl::read_xlsx(negative_rule))
 EI_mode_rule <- as.data.frame(readxl::read_xlsx(EI_mode_rule))
 
 xsaFA_con <- findAdducts(xsaFI, polarity = "positive", rules = as.data.frame(positive_rule))
+xsaPL_contamination <- getPeaklist(xsaFA_con)
 
 ### Another way of doing it:
 
