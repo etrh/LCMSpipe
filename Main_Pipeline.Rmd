@@ -651,7 +651,9 @@ shiny_EIC <- function(){
           shiny::numericInput(inputId = "rt_min", label = "RT min", value = 200),
           shiny::numericInput(inputId = "rt_max", label = "RT max", value = 210)
           )
-        )
+        ),
+        
+        submitButton("Update View", icon("refresh"))
       ),
       
       mainPanel(width = 12,
@@ -666,7 +668,8 @@ shiny_EIC <- function(){
       
       chr_raw <- xcms::chromatogram(raw_data, mz = c(input$mz_min, input$mz_max), rt = c(input$rt_min, input$rt_max))
       plot(chr_raw, col = group_colors[chr_raw$sample_group], 
-           main = paste0("EIC. m/z: ", mzr[1], "-", mzr[2], " | RT: ", rtr[1], "-", rtr[2]))
+           main = paste0("EIC. m/z: ", input$mz_min, "-", input$mz_max, 
+                         " | RT: ", input$rt_min, "-", input$rt_max))
       legend("topleft", col = group_colors, legend = names(group_colors), lty = 1)
       
     })
@@ -864,6 +867,7 @@ png("QC/13 - rtime_alignment_evaluation_on_test_peak_before_after_alignment.png"
     width = 15, height = 7, units = "in", res = 1200)
 par(mfrow = c(2, 1))
 ## Plot the raw data
+chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
 plot(chr_raw, col = group_colors[chr_raw$sample_group])
 
 ## Extract the chromatogram from the adjusted object
@@ -871,33 +875,77 @@ chr_adj <- chromatogram(xdata, rt = rtr, mz = mzr)
 plot(chr_adj, col = group_colors[chr_raw$sample_group]) 
 dev.off()
 
+# Evaluate retention time alignment across several peaks
+dir.create("QC/13 - rtime_alignment_evaluation")
+
+cl <- parallel::makeCluster(30)
+doParallel::registerDoParallel(cl)
+
+random_peak_idx <- c(1, 5, 10, sample(seq(from = 1, to = dim(chromPeaks(xdata))[1], by = 3), size = 25, replace = TRUE))
+foreach::foreach(i = random_peak_idx, .packages = c('dplyr', 'xcms')) %dopar% {
+  
+  mzr <- c(chromPeaks(xdata)[i,"mzmin"], chromPeaks(xdata)[i,"mzmax"])
+  rtr <- c(chromPeaks(xdata)[i,"rtmin"] %>% floor, chromPeaks(xdata)[i,"rtmax"] %>% ceiling)
+  
+  png(paste0("QC/13 - rtime_alignment_evaluation/13 - rtime_alignment_mz-", 
+             mzr[1], "-", mzr[2], "_rt-", rtr[1], "-", rtr[2], ".png"), 
+      width = 15, height = 7, units = "in", res = 400)
+  
+  par(mfrow = c(2, 1))
+  chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
+  plot(chr_raw, col = group_colors[chr_raw$sample_group])
+  chr_adj <- chromatogram(xdata, rt = rtr, mz = mzr)
+  plot(chr_adj, col = group_colors[chr_raw$sample_group]) 
+  dev.off()
+}
+parallel::stopCluster(cl)
+
 ### Correspondence
 
 ## Define the mz slice.
-mzr <- c(189, 192)
-rtr <- c(600, 700)
+random_peak_idx <- c(1, 5, 10, sample(seq(from = 1, to = dim(chromPeaks(xdata))[1], by = 3), size = 25, replace = TRUE))
 
 ## Extract and plot the chromatograms
-png("QC/14 - peak_density_correspondence.png", 
-    width = 15, height = 7, units = "in", res = 1200)
-chr_mzr <- chromatogram(xdata, mz = mzr, rt = rtr)
-par(mfrow = c(3, 1), mar = c(1, 4, 1, 0.5))
-cols <- group_colors[chr_mzr$sample_group]
-plot(chr_mzr, col = cols, xaxt = "n", xlab = "")
-## Highlight the detected peaks in that region.
-highlightChromPeaks(xdata, mz = mzr, col = cols, type = "point", pch = 16)
-## Define the parameters for the peak density method
-pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
-            minFraction = 0.4, bw = 30)
-par(mar = c(4, 4, 1, 0.5))
-plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
-             pch = 16, xlim = rtr)
-## Use a different bw
-pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
-            minFraction = 0.4, bw = 20)
-plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
-             pch = 16, xlim = rtr)
-dev.off()
+cl <- parallel::makeCluster(30)
+doParallel::registerDoParallel(cl)
+
+foreach::foreach(i = random_peak_idx, .packages = c('dplyr', 'xcms')) %dopar% {
+  
+  png(paste0("QC/14 - peak_density_correspondence", i, ".png"), width = 15, height = 13, units = "in", res = 1200)
+  
+  mzr <- c(chromPeaks(xdata)[i,"mzmin"], chromPeaks(xdata)[i,"mzmax"])
+  rtr <- c(chromPeaks(xdata)[i,"rtmin"] %>% floor, chromPeaks(xdata)[i,"rtmax"] %>% ceiling)
+  
+  chr_mzr <- chromatogram(xdata, mz = mzr, rt = rtr)
+  par(mfrow = c(4, 1), mar = c(1, 4, 1, 0.5))
+  cols <- group_colors[chr_mzr$sample_group]
+  plot(chr_mzr, col = cols, xaxt = "n", xlab = "")
+  
+  ## Highlight the detected peaks in that region.
+  highlightChromPeaks(xdata, mz = mzr, col = cols, type = "point", pch = 16)
+  
+  par(mar = c(4, 4, 1, 0.5))
+  
+  ## Define the parameters for the peak density method
+  pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+                          minFraction = 0.4, bw = 30)
+  plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
+                       pch = 16, xlim = rtr)
+  
+  ## Use a different bw
+  pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+                          minFraction = 0.4, bw = 20)
+  plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
+                       pch = 16, xlim = rtr)
+  
+  ## Once again use a different set of parameters
+  pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
+                          minFraction = 0.5, bw = 40)
+  plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
+                       pch = 16, xlim = rtr)
+  
+  dev.off()
+}
 
 ## plot shows peak density correspondence
 #Upper panel: chromatogram for an mz slice with multiple chromatographic peaks. Middle and lower panel: identified chromatographic peaks at their retention time (x-axis) and index within samples of the experiments (y-axis) for different values of the bw parameter. The black line represents the peak density estimate. Grouping of peaks (based on the provided settings) is indicated by grey rectangles.
