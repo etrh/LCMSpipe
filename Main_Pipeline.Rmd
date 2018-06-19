@@ -547,12 +547,14 @@ peakpickingParameters$noise <- 5000
 peakpickingParameters$prefilter <- c(3,5)
 peakpickingParameters$value_of_prefilter <- c(3000,15000)
 peakpickingParameters$fitgauss <- TRUE
+peakpickingParameters$nSlaves <- 11
 
 data <- list.files("data/Rik/ESI+/", recursive = T, full.names = T, pattern = ".mzML")
+
 optimized.xcmsSet <- system.time({
     resultPeakpicking <- optimizeXcmsSet(files = data, 
                                          params = peakpickingParameters,
-                                         subdir = "IPO_plots")
+                                         subdir = "IPO_plots", nSlaves = 12)
 })
 
 ```
