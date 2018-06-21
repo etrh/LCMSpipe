@@ -725,7 +725,6 @@ head(chromPeaks(xdata))
 
 
 ### per file (sample) statistics
-summary_fun <- 
 peakTab <- lapply(split.data.frame(chromPeaks(xdata),
                  f = chromPeaks(xdata)[, "sample"]),
         FUN = function(z) {
