@@ -577,7 +577,13 @@ head(rtime(raw_data), n = 25)
 
 mzs <- mz(raw_data)
 mzs_by_file <- split(mzs, f = fromFile(raw_data)) ## split the list by file / organize mz values by file
-length(mzs_by_file) 
+length(mzs_by_file)
+
+rts <- rtime(raw_data)
+rts_by_file <- split(rts, f = fromFile(raw_data)) ## split the list by file / organize mz values by file
+length(rts_by_file)
+lapply(rts_by_file, range)
+lapply(rts_by_file, range) %>% lapply(`[`, 2) %>% unlist %>% sort
 
 ## BPC
 
@@ -619,8 +625,12 @@ dev.off()
 
 
 ## Define the rt and m/z range of the peak area
-rtr <- c(520, 540) ### Testosterone 13C (C16[13C]3H28O2) is at 8.8 min
-mzr <- c(292.13, 292.26) ### Mass of Testosterone 13C (C16[13C]3H28O2) is 292.21899
+#rtr <- c(520, 540) ### Testosterone 13C (C16[13C]3H28O2) is at 8.8 min
+#mzr <- c(292.13, 292.26) ### Mass of Testosterone 13C (C16[13C]3H28O2) is 292.21899
+
+### in many datasets Testosterone 13C was found in the following range:
+mzr <- c(291.1434,291.1444)
+rtr <- c(635,695)
 
 ## extract the chromatogram and inspect the peakwidth and set the peak picking parameter accordingly
 chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
@@ -719,7 +729,10 @@ parallel::stopCluster(cl)
 cwp <- CentWaveParam(peakwidth = c(8, 25), noise = 2000, ppm = 30, 
                      snthresh = 9, prefilter = c(5,3000), fitgauss = TRUE)
 xdata <- findChromPeaks(raw_data, param = cwp)
-head(chromPeaks(xdata))
+
+peaklist <- chromPeaks(xdata)
+peaklist %>% head
+
 
 #The returned matrix provides the m/z and retention time range for each identified chromatographic peak as well as the integrated signal intensity (“into”) and the maximal peak intensitity (“maxo”). Column “sample” contains the index of the sample in the object/experiment in which the peak was identified.
 
@@ -776,6 +789,7 @@ dev.off()
 
 ## Highlight identified peaks
 ## Evaluating such plots on a list of peaks corresponding to known peaks or internal standards helps to ensure that peak detection settings were appropriate and correctly identified the expected peaks.
+
 rtr <- c(600, 700)
 mzr <- c(189, 192)
 chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
@@ -786,6 +800,29 @@ plot(chr_raw, col = group_colors[chr_raw$sample_group], lwd = 2)
 highlightChromPeaks(xdata, border = group_colors[chr_raw$sample_group],
                     lty = 3, rt = rtr, mz = mzr)
 dev.off()
+
+## Take a look at some of the identified peaks
+random_peak_idx <- c(1, 5, 10, 50, 100, sample(seq(from = 1, to = dim(chromPeaks(xdata))[1], by = 3), size = 100, replace = TRUE))
+
+cl <- parallel::makeCluster(50)
+doParallel::registerDoParallel(cl)
+dir.create("QC/09 - EIC")
+
+foreach::foreach(i = random_peak_idx, .packages = c('dplyr', 'xcms')) %dopar% {
+    
+    mzr <- c(chromPeaks(xdata)[i,"mzmin"], chromPeaks(xdata)[i,"mzmax"])
+    rtr <- c(chromPeaks(xdata)[i,"rtmin"] %>% floor, chromPeaks(xdata)[i,"rtmax"] %>% ceiling)
+    
+    chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
+    
+    png(paste0("QC/EIC/09 - Identified_peaks_in_mz_", mzr[1], "-", mzr[2], "_rt_", rtr[1], "-", rtr[2], ".png"), 
+        width = 15, height = 7, unit = "in", res = 400)
+    
+    plot(chr_raw, col = group_colors[chr_raw$sample_group], lwd = 2)
+    highlightChromPeaks(xdata, border = group_colors[chr_raw$sample_group], lty = 3, rt = rtr, mz = mzr)
+    
+    dev.off()
+}
 
 ## Extract identified chromatographic peaks in a region
 pander::pander(chromPeaks(xdata, mz = mzr, rt = rtr),
