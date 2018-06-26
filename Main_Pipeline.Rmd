@@ -568,7 +568,7 @@ mzml.files
 
 pheno_data <- data.frame(sample_name = sub(basename(mzml.files), pattern = ".mzML", replacement = "", fixed = TRUE),
                          sample_group = c(rep("Rik", 14), rep("WT", 14)),
-                         stringsAsFactors = FALSE) 
+                         stringsAsFactors = FALSE)
 
 raw_data <- readMSData(files = mzml.files, pdata = new("NAnnotatedDataFrame", pheno_data), mode = "onDisk") ###MSnbase can convert 'profile' to 'centroid'. More information: browseVignettes("MSnbase")
 
@@ -823,6 +823,8 @@ foreach::foreach(i = random_peak_idx, .packages = c('dplyr', 'xcms')) %dopar% {
     
     dev.off()
 }
+
+parallel::stopCluster(cl)
 
 ## Extract identified chromatographic peaks in a region
 pander::pander(chromPeaks(xdata, mz = mzr, rt = rtr),
