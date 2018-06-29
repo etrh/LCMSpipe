@@ -1074,8 +1074,19 @@ write.csv(metaboanalyst_dat, file='QC/PeakIntensityMatrix_MetaboAnalyst.csv')
 head(metaboanalyst_dat)
 tail(metaboanalyst_dat)
 
+# Isomeric separation
+# Check if the individually found peaks (dots) are separated in groups (rectangles) properly
+devtools::source_url("https://gitlab.com/R_packages/chemhelper/raw/master/R/xcms_helpers.R")
 
+analyze.xcms.group(xset_conv,
+                   mz = xset_conv@peaks[,"mz"][1],
+                   rt = xset_conv@peaks[,"rt"][1],
+                   rt_tol_sample = 60,
+                   mz_tol_sample = 0.1,
+                   rt_tol_group = 60,
+                   mz_tol_group = 0.1)
 
+# 3D visualization
 x = split(mz(raw_data), f = fromFile(raw_data))
 y = split(intensity(raw_data), f = fromFile(raw_data))
 z = (split(rtime(raw_data), f = fromFile(raw_data)))
