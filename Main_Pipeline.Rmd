@@ -792,8 +792,6 @@ dev.off()
 ## Highlight identified peaks
 ## Evaluating such plots on a list of peaks corresponding to known peaks or internal standards helps to ensure that peak detection settings were appropriate and correctly identified the expected peaks.
 
-rtr <- c(600, 700)
-mzr <- c(189, 192)
 chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
 png(paste0("QC/09 - Identified_peaks_in_mz_", mzr[1], "-", mzr[2], 
            "_rt_", rtr[1], "-", rtr[2], ".png"), width = 15, height = 7, unit = "in",
@@ -1027,6 +1025,8 @@ apply(featureValues(xdata), MARGIN = 2,
 
 fillpeaks_stats <- merge(before_fillpeaks, after_fillpeaks, by = "row.names") %>% 
   rename(Samples = Row.names, Before = x, After = y)
+
+fillpeaks_stats
 
 ## At last we perform a principal component analysis to evaluate the grouping of the samples in this experiment. Note that we did not perform any data normalization hence the grouping might (and will) also be influenced by technical biases.
 
