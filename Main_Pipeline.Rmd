@@ -733,6 +733,7 @@ xdata <- findChromPeaks(raw_data, param = cwp)
 peaklist <- chromPeaks(xdata)
 peaklist %>% head
 
+write.csv(x = peaklist, file = "QC/Peaklist.csv")
 
 #The returned matrix provides the m/z and retention time range for each identified chromatographic peak as well as the integrated signal intensity (“into”) and the maximal peak intensitity (“maxo”). Column “sample” contains the index of the sample in the object/experiment in which the peak was identified.
 
@@ -752,6 +753,7 @@ pander::pandoc.table(peakTab,
                   "peaks."))
 print(peakTab)
 table(chromPeaks(xdata)[, "sample"])
+write.csv(x = peakTab, file = "QC/Identified_peaks_summary.csv")
 
 ### plot the location of the identified chromatographic peaks in the m/z - retention time space for each file
 dir.create("QC/06 - location_of_identified_peaks/")
@@ -815,7 +817,7 @@ foreach::foreach(i = random_peak_idx, .packages = c('dplyr', 'xcms')) %dopar% {
     
     chr_raw <- chromatogram(raw_data, mz = mzr, rt = rtr)
     
-    png(paste0("QC/EIC/09 - Identified_peaks_in_mz_", mzr[1], "-", mzr[2], "_rt_", rtr[1], "-", rtr[2], ".png"), 
+    png(paste0("QC/09 - EIC/09 - Identified_peaks_in_mz_", mzr[1], "-", mzr[2], "_rt_", rtr[1], "-", rtr[2], ".png"), 
         width = 15, height = 7, unit = "in", res = 400)
     
     plot(chr_raw, col = group_colors[chr_raw$sample_group], lwd = 2)
@@ -881,12 +883,14 @@ hasAdjustedRtime(xdata)
 # The definition of the sample groups (i.e. assignment of individual samples to the sample groups in the experiment) is mandatory for the PeakDensityParam. If there are no sample groups in the experiment sampleGroups should be set to a single value for each file, e.g.  rep(1, length(fileNames(xdata))).
 
 ## Correspondence: group peaks across samples.
-pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
-            minFraction = 0.8)
+pdp <- PeakDensityParam(sampleGroups = xdata$sample_group, 
+                        bw = 6, binSize = 0.05, 
+                        minFraction = 0.5, minSamples = 3)
+
 xdata <- groupChromPeaks(xdata, param = pdp)
 
 ## Now the retention time correction.
-pgp <- PeakGroupsParam(minFraction = 0.85)
+pgp <- PeakGroupsParam(minFraction = 0.5, span = 0.55)
 
 ## Get the peak groups that would be used for alignment.
 xdata <- adjustRtime(xdata, param = pgp)
@@ -926,7 +930,7 @@ random_peak_idx <- c(1, 5, 10, sample(seq(from = 1, to = dim(chromPeaks(xdata))[
 foreach::foreach(i = random_peak_idx, .packages = c('dplyr', 'xcms')) %dopar% {
   
   mzr <- c(chromPeaks(xdata)[i,"mzmin"], chromPeaks(xdata)[i,"mzmax"])
-  rtr <- c(chromPeaks(xdata)[i,"rtmin"] %>% floor, chromPeaks(xdata)[i,"rtmax"] %>% ceiling)
+  rtr <- c(chromPeaks(xdata)[i,"rtmin"] - 50, chromPeaks(xdata)[i,"rtmax"] + 50)
   
   png(paste0("QC/13 - rtime_alignment_evaluation/13 - rtime_alignment_mz-", 
              mzr[1], "-", mzr[2], "_rt-", rtr[1], "-", rtr[2], ".png"), 
@@ -969,24 +973,25 @@ foreach::foreach(i = random_peak_idx, .packages = c('dplyr', 'xcms')) %dopar% {
   
   ## Define the parameters for the peak density method
   pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
-                          minFraction = 0.4, bw = 30)
+                          minFraction = 0.4, bw = 8)
   plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
                        pch = 16, xlim = rtr)
   
   ## Use a different bw
   pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
-                          minFraction = 0.4, bw = 20)
+                          minFraction = 0.4, bw = 5)
   plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
                        pch = 16, xlim = rtr)
   
   ## Once again use a different set of parameters
   pdp <- PeakDensityParam(sampleGroups = xdata$sample_group,
-                          minFraction = 0.5, bw = 40)
+                          minFraction = 0.5, bw = 4, binSize = 0.01)
   plotChromPeakDensity(xdata, mz = mzr, col = cols, param = pdp,
                        pch = 16, xlim = rtr)
   
   dev.off()
 }
+parallel::stopCluster(cl)
 
 ## plot shows peak density correspondence
 #Upper panel: chromatogram for an mz slice with multiple chromatographic peaks. Middle and lower panel: identified chromatographic peaks at their retention time (x-axis) and index within samples of the experiments (y-axis) for different values of the bw parameter. The black line represents the peak density estimate. Grouping of peaks (based on the provided settings) is indicated by grey rectangles.
@@ -1014,11 +1019,14 @@ head(featureValues(xdata))
 
 ## Missing values before filling in peaks
 apply(featureValues(xdata, filled = FALSE), MARGIN = 2,
-      FUN = function(z) sum(is.na(z)))
+      FUN = function(z) sum(is.na(z))) -> before_fillpeaks
 
 ## Missing values after filling in peaks
 apply(featureValues(xdata), MARGIN = 2,
-      FUN = function(z) sum(is.na(z)))
+      FUN = function(z) sum(is.na(z))) -> after_fillpeaks
+
+fillpeaks_stats <- merge(before_fillpeaks, after_fillpeaks, by = "row.names") %>% 
+  rename(Samples = Row.names, Before = x, After = y)
 
 ## At last we perform a principal component analysis to evaluate the grouping of the samples in this experiment. Note that we did not perform any data normalization hence the grouping might (and will) also be influenced by technical biases.
 
@@ -1062,7 +1070,7 @@ metaboanalyst_dat <- groupval(xset_conv, "medret", "into")
 rownames(metaboanalyst_dat) <- groupnames(xset_conv, mzdec = 5, rtdec = 5)
 metaboanalyst_dat <- rbind(group = as.character(phenoData(xset_conv)$class), metaboanalyst_dat)
 colnames(metaboanalyst_dat) <- xset_conv@phenoData$sample_name
-write.csv(metaboanalyst_dat, file='PeakIntensityMatrix_MetaboAnalyst.csv')
+write.csv(metaboanalyst_dat, file='QC/PeakIntensityMatrix_MetaboAnalyst.csv')
 head(metaboanalyst_dat)
 tail(metaboanalyst_dat)
 
