@@ -1590,3 +1590,95 @@ download.file("http://facultyweb.mga.edu/yingfeng.wang/research/metabolomics/mid
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5570768/
 # doi:  10.1007/s11306-017-1248-1
 ```
+
+
+```{r Batch Correction -- NOT FUNCTIONAL -- UNDER DEVELOPMENT}
+devtools::install_git("https://gitlab.com/CarlBrunius/batchCorr.git")
+
+path.pos <- "Data/Freezing_Exp_All/pos/"
+pos.mzml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzML")
+pos.mzml
+
+param.ppm <- 30
+param.snthresh <- 3
+param.prefilter <- c(5, 10000)
+param.noise <- 6500
+param.peakwidth <- c(20, 50)
+param.parallelization <- MulticoreParam(floor(detectCores() * 0.95)) ### use 90% of the cores for parallel computing
+
+xset.batch <- xcmsSet(pos.mzml, method = "centWaveWithPredictedIsotopeROIs", 
+                          ppm = param.ppm, 
+                          snthresh = param.snthresh, 
+                          prefilter = param.prefilter, 
+                          noise = param.noise, 
+                          peakwidth = param.peakwidth,
+                          BPPARAM = param.parallelization)
+
+xset.batch <- group(xset.batch)
+xset.batch <- retcor(xset.batch, family="gaussian", plottype="mdevden")
+xset.batch <- group(xset.batch)
+xset.batch <- retcor(xset.batch, family="gaussian", plottype="mdevden")
+
+QC_nofill <- group(xset.batch)
+QC_fill <- fillPeaks(QC_nofill, method = "chrom")
+
+
+# Organise into peaktable with missing data
+    QCB = grabAlign(QC_nofill,batch='Fresh',grp='Mouse1')
+    RefB=grabAlign(QC_nofill,batch='Fresh',grp='Mouse4')
+    QCF=grabAlign(QC_nofill,batch='Frozen',grp='Mouse2')
+    RefF=grabAlign(QC_nofill,batch='Frozen',grp='Mouse4')
+    QCH=grabAlign(QC_nofill,batch='Refrozen',grp='Mouse5')
+    RefH=grabAlign(QC_nofill,batch='Refrozen',grp='Mouse4')
+    PTnofill=rbind(QCB,RefB,QCF,RefF,QCH,RefH)
+    
+# Organise into peaktable without missing data
+    QCB = grabAlign(QC_fill,batch='Fresh',grp='Mouse1')
+    RefB=grabAlign(QC_fill,batch='Fresh',grp='Mouse4')
+    QCF=grabAlign(QC_fill,batch='Frozen',grp='Mouse2')
+    RefF=grabAlign(QC_fill,batch='Frozen',grp='Mouse4')
+    QCH=grabAlign(QC_fill,batch='Refrozen',grp='Mouse5')
+    RefH=grabAlign(QC_fill,batch='Refrozen',grp='Mouse4')
+    PTfill=rbind(QCB,RefB,QCF,RefF,QCH,RefH)
+    
+    # Set up metadata (Quick'n'Dirty approach)
+    batch=c(rep('B',nrow(QCB)+nrow(RefB)),rep('F',nrow(QCF)+nrow(RefF)),rep('H',nrow(QCH)+nrow(RefH)))
+    grp=c(rep('Q',nrow(QCB)),rep('R',nrow(RefB)),rep('Q',nrow(QCF)),rep('R',nrow(RefF)),rep('Q',nrow(QCH)),rep('R',nrow(RefH)))
+    meta=cbind(batch,grp)
+
+## Perform batch alignment
+# Extract peakinfo (i.e. m/z and rt of features)
+peakIn=peakInfo(PTnofill)
+
+# Flag presence/missingness on batch level
+bF=batchFlag(PTnofill,meta,peakIn)
+
+# Find possible alignment candidates per sample type
+aIQ=alignIndex(bF,grpType='Q',mzdiff=0.002,rtdiff=15,report=T,reportName='splits_aIQ')
+
+# Plot achieved alignments
+plotAlign(bF,aIQ,plotType='pdf',reportName='clustPlots_aIQ')
+
+# Perform alignment -> Peaktable
+bA=batchAlign(bF,aIQ,PTfill,meta)
+
+# Extract new peak table
+PT=bA$PTalign
+
+dim(PT)
+
+```
+
+```{r Calculate monoisotopic mass from formula and plot isotopes}
+library(enviPat)
+data(isotopes)
+
+internal_standards <- c("C9H7D5N2O", "[13]C6H12O6", "C15[13]C3H24O2",
+                        "C14H10D6ClN3O", "C16[13]C3H28O2", "C16[13]C3H30O2",
+                        "C19[13]C2H30D2O2", "C19H8D3F5N2O2", "C23[13]CH40O5")
+
+check_chemform(isotopes = isotopes, chemforms = internal_standards)
+
+pattern <- isopattern(isotopes = isotopes, chemforms = internal_standards,
+                      threshold = 0.1, plotit = TRUE, charge = FALSE, algo = 1, verbose = TRUE)
+```
