@@ -1677,8 +1677,10 @@ internal_standards <- c("C9H7D5N2O", "[13]C6H12O6", "C15[13]C3H24O2",
                         "C14H10D6ClN3O", "C16[13]C3H28O2", "C16[13]C3H30O2",
                         "C19[13]C2H30D2O2", "C19H8D3F5N2O2", "C23[13]CH40O5")
 
-check_chemform(isotopes = isotopes, chemforms = internal_standards)
+chemforms_is <- check_chemform(isotopes = isotopes, chemforms = internal_standards)
 
 pattern <- isopattern(isotopes = isotopes, chemforms = internal_standards,
                       threshold = 0.1, plotit = TRUE, charge = FALSE, algo = 1, verbose = TRUE)
+
+isowrap(isotopes = isotopes, checked = chemforms_is, resmass = FALSE, resolution = 20000)
 ```
