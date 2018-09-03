@@ -1129,7 +1129,7 @@ xsaFA <- findAdducts(xsaFI, polarity="positive")
 ## e.g. rules = read.csv(system.file('rules/primary_adducts_pos.csv', package = "CAMERA"))
 
 #Get final peaktable and store on harddrive / ## extract annotated peak table
-xsaPL <- getPeaklist(xsaFA) 
+xsaPL <- getPeaklist(xsaFA)
 
 ## pcgroup shows the annotation group / column pc shows the result of the peak correlation based annotation (independent of the annotations iso and adduct). Peaks with the same label are supposed to belong to the same spectrum
 
@@ -1137,6 +1137,11 @@ xsaPL <- getPeaklist(xsaFA)
 
 ## The column isotopes contains the annotated isotopes for a monoisotopic peak. The values in the first square brackets denote the isotope-group-id(column id), the second is the isotope annotation and the number after the brackets is the charge of the isotope.
 
+## Extract only those features that were found to be significantly different between groups via MetaboAnalyst analysis
+sig_feat <- c(658.4816, 629.4534, 651.5637, 674.5819, 732.5720, 667.1389, 387.1131, 846.5442)
+xsaPL %>% 
+  dplyr::filter(paste0("abs(mz-", sig_feat, ") < 0.0001", collapse = " | ") 
+                %>% parse(text = .) %>% as.expression %>% eval())
 
 sample_groups <- paste(unique(xsaFA@xcmsSet@phenoData$sample_group), collapse = "_")
 write.csv(xsaPL, file = paste0(sample_groups, 
