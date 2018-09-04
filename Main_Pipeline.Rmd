@@ -1103,17 +1103,26 @@ We want to answer the questions which peaks occur from the same molecule and sec
 xsa <- xsAnnotate(xset_conv, polarity = "positive", sample = c(1:dim(xset_conv@phenoData)[1]))
 
 #Group after RT value of the xcms grouped peak / group peaks by retention time
-xsaF <- groupFWHM(xsa, perfwhm=0.6)
+xsaF <- groupFWHM(object = xsa, perfwhm = 0.1, intval = "into")
 # this function uses the retention time information. Every peaks that falls into a defined window are considered as one group. The window is defined as a percentage of the peak FWHM around the RT med value
 # The perfwhm parameter defines the window width, which is used for matching. Lower it for a smaller windows or set it to a higher value, if the retention time varies.
 
 #Verify grouping
-xsaC <- groupCorr(xsaF) # This function calculates the pearson correlation coefficient based on the peak shapes of every peak in the pseudospectrum to separate co-eluted substances. Run groupFWHM before groupCorr to avoid extremely long running times
+xsaC <- groupCorr(object = xsaF, 
+                  calcIso = FALSE, 
+                  calcCiS = FALSE,
+                  calcCaS = TRUE, 
+                  cor_eic_th = 0.7, 
+                  cor_exp_th = 0.7,
+                  pval = 0.000001,
+                  graphMethod = "lpc",
+                  intval = "into")
+# This function calculates the pearson correlation coefficient based on the peak shapes of every peak in the pseudospectrum to separate co-eluted substances. Run groupFWHM before groupCorr to avoid extremely long running times
 
 # if your analysis doesn’t need annotations, only a separation into groups, then simply stop after groupCorr
 
 #Annotate isotopes (isotopic peaks), could be done before groupCorr
-xsaFI <- findIsotopes(xsaC)
+xsaFI <- findIsotopes(object = xsaC, ppm = 10, mzabs = 0.02, intval = "into")
 # maxcharge and maxiso control the maximum number of the expected isotopes within one cluster and their charges
 
 # CAMERA can identify isotope peaks within every pseudospectra. In particular, putative isotope clusters are validated and deconvoluted based on database statistics of the KEGG database
@@ -1122,14 +1131,46 @@ xsaFI <- findIsotopes(xsaC)
 #                                  intval="intb", maxcharge = 3, 
 #                                  validateIsotopePatterns = T, database = compoundLibraries()[5])
 
+# Rule tables in CAMERA, more info can be found in `vignette("CAMERA")`
+
+rules.primary.pos <- system.file('rules/primary_adducts_pos.csv', package = "CAMERA") %>% read.csv
+rules.primary.neg <- system.file('rules/primary_adducts_neg.csv', package = "CAMERA") %>% read.csv
+rules.extended.pos <- system.file('rules/extended_adducts_pos.csv', package = "CAMERA") %>% read.csv(sep = "\t")
+rules.extended.neg <- system.file('rules/extended_adducts_neg.csv', package = "CAMERA") %>% read.csv
+
+rules.pos.common <- commonMZ::MZ_CAMERA(mode = "pos", warn_clash = TRUE, clash_ppm = 5) %>% as.data.frame
+rules.neg.common <- commonMZ::MZ_CAMERA(mode = "neg", warn_clash = TRUE, clash_ppm = 5) %>% as.data.frame
+
 #Annotate adducts
-xsaFA <- findAdducts(xsaFI, polarity="positive") 
+xsaFA <- findAdducts(xsaFI, polarity = "positive", ppm = 10, mzabs = 0.02, multiplier = 4)
+xsaFA_extended <- findAdducts(xsaFI, polarity = "positive", ppm = 10, mzabs = 0.02, multiplier = 4, rules = rules.extended.pos)
+xsaFA_commonMZ <- findAdducts(xsaFI, polarity = "positive", ppm = 10, mzabs = 0.02, multiplier = 4, rules = rules.pos.common)
 ## CAMERA calculates its own rule table depending on your ionization mode
 ## However, 'rules' parameter can be set (CAMERA contains four precalculated rule tables)
 ## e.g. rules = read.csv(system.file('rules/primary_adducts_pos.csv', package = "CAMERA"))
 
+rules_count_extended <- xsaFA_extended@annoID[, "ruleID"] %>% 
+      factor(levels=1:nrow(rules.extended.pos)) %>% 
+      table %>% as.matrix %>% as.data.frame %>% 
+      bind_cols(rules.extended.pos[,'name',drop=FALSE],.) %>% 
+      setNames(c("Rule","Count")) %>% 
+      arrange(desc(Count)) %>% 
+      as.data.frame
+pie(as.numeric(rules_count_extended[,"Count"]),labels=rules_count_extended[,"Rule"])
+
+rules_count_common <- xsaFA_commonMZ@annoID[, "ruleID"] %>% 
+      factor(levels=1:nrow(rules.pos.common)) %>% 
+      table %>% as.matrix %>% as.data.frame %>% 
+      bind_cols(rules.pos.common[,'name',drop=FALSE],.) %>% 
+      setNames(c("Rule","Count")) %>% 
+      arrange(desc(Count)) %>% 
+      as.data.frame
+pie(as.numeric(rules_count_common[,"Count"]),labels=rules_count_common[,"Rule"])
+
 #Get final peaktable and store on harddrive / ## extract annotated peak table
 xsaPL <- getPeaklist(xsaFA)
+xsaPL_extended <- getPeaklist(xsaFA_extended)
+xsaPL_common <- getPeaklist(xsaFA_commonMZ)
 
 ## pcgroup shows the annotation group / column pc shows the result of the peak correlation based annotation (independent of the annotations iso and adduct). Peaks with the same label are supposed to belong to the same spectrum
 
@@ -1214,14 +1255,6 @@ isotopes.decomposed <- lapply(isolist.multiple,function(x) {
 
 length(isotopes.decomposed)
 head(isotopes.decomposed[[1]])
-
-
-# Rule tables in CAMERA, more info can be found in `vignette("CAMERA")`
-
-rule.table.file1 <- system.file('rules/primary_adducts_pos.csv', package = "CAMERA")
-rule.table.file2 <- system.file('rules/primary_adducts_neg.csv', package = "CAMERA")
-rule.table.file3 <- system.file('rules/extended_adducts_pos.csv', package = "CAMERA")
-rule.table.file4 <- system.file('rules/extended_adducts_neg.csv', package = "CAMERA")
 ```
 
 ```{r Contaminant annotation in CAMERA}
