@@ -7,7 +7,7 @@ output: html_document
   
   
 On UNIX-based systems you will first need to ensure that the following requirements are installed:  
-  `sudo apt-get install -y libxml2-dev libcurl4-openssl-dev libssl-dev netcdf-bin libnetcdf-dev gfortran libblas-dev liblapack-dev libpcre++-dev liblzma-dev libbz2-dev libgtk2.0-dev bwidget libglu1-mesa-dev freeglut3-dev mesa-common-dev default-jre default-jdk libmariadbclient-dev libmariadb-client-lgpl-dev`
+  `sudo apt-get install -y libxml2-dev libcurl4-openssl-dev libssl-dev netcdf-bin libnetcdf-dev gfortran libblas-dev liblapack-dev libpcre++-dev liblzma-dev libbz2-dev libgtk2.0-dev bwidget libglu1-mesa-dev freeglut3-dev mesa-common-dev default-jre default-jdk libmariadbclient-dev libmariadb-client-lgpl-dev texinfo texlive`
   
   
 ```{r Setup, include=FALSE}
@@ -1095,6 +1095,92 @@ p <- plot_ly(x = dl$mz, y = dl$int, z = as.matrix(dl$rt)) %>% add_surface() ## s
 p
 ```
 
+```{r MetaboAnalyst}
+mSet <- InitDataObjects("pktable", "stat", FALSE)
+mSet <- Read.TextData(mSet, "QC/PeakIntensityMatrix_MetaboAnalyst.csv", "colu", "disc")
+
+dir.create("MetaboAnalyst")
+setwd("MetaboAnalyst/")
+
+mSet <- SanityCheckData(mSet)
+mSet <- ReplaceMin(mSet);
+mSet <- Normalization(mSet, rowNorm = "QuantileNorm", transNorm = "LogNorm", scaleNorm = "NULL", ratio = FALSE, ratioNum = 20)
+
+mSet <- PlotNormSummary(mSet, imgName = "normalization_0_", format = "png", dpi = 600, width = 7)
+mSet <- PlotSampleNormSummary(mSet, "sample_normalization_0_", "png", 600, width = 7)
+
+mSet <- FC.Anal.unpaired(mSet, 2.0, 0)
+mSet <- PlotFC(mSet, "fold_change_0_", "png", 600, width=7)
+
+mSet <- Ttests.Anal(mSet, nonpar = T, threshp = 0.05, paired = FALSE, equal.var = TRUE)
+mSet <- PlotTT(mSet, "ttest_0_", "png", 600, width = 7)
+
+mSet <- Volcano.Anal(mSet, paired = FALSE, fcthresh = 2.0, cmpType = 0, 
+                     percent.thresh = 0.75, nonpar = T, threshp = 0.05, 
+                     equal.var = TRUE, pval.type = "raw")
+mSet <- PlotVolcano(mSet, "volcano_0_", plotLbl = 1, "png", 600, width = 7)
+
+mSet <- PCA.Anal(mSet)
+mSet <- PlotPCAPairSummary(mSet, "pca_pair_0_", "png", 600, width = 7, pc.num = 8)
+mSet <- PlotPCAScree(mSet, "pca_scree_0_", "png", 600, width = 7, scree.num = 8)
+mSet <- PlotPCA2DScore(mSetObj = mSet, imgName = "pca_score2d_0_", format = "png", dpi = 600, 
+                       width = 7, pcx = 1, pcy = 2, reg = 0.95, show = 1, grey.scale = 0)
+mSet <- PlotPCA2DScore(mSetObj = mSet, imgName = "pca_score2d_1_", format = "png", dpi = 600, 
+                       width = 7, pcx = 1, pcy = 3, reg = 0.95, show = 1, grey.scale = 0)
+mSet <- PlotPCA2DScore(mSetObj = mSet, imgName = "pca_score2d_2_", format = "png", dpi = 600, 
+                       width = 7, pcx = 2, pcy = 3, reg = 0.95, show = 1, grey.scale = 0)
+mSet <- PlotPCALoading(mSet, "pca_loading_0_", "png", dpi = 600, width = 7, inx1 = 1, inx2 = 2, plotType = "scatter", lbl.feat = 1)
+mSet <- PlotPCABiplot(mSet, "pca_biplot_0_", "png", 600, width = 7, inx1 = 1, inx2 = 2)
+mSet <- PlotPCA3DScoreImg(mSet, "pca_score3d_0_", "png", 600, width = 7, inx1 = 1, inx2 = 2, inx3 = 3, angl = 40)
+
+mSet <- PLSR.Anal(mSet, reg = TRUE)
+mSet <- PlotPLSPairSummary(mSet, "pls_pair_0_", "png", 600, width = 7, pc.num = 8)
+mSet <- PlotPLS2DScore(mSet, "pls_score2d_0_", "png", 600, width = 7, inx1 = 1, inx2 = 2, reg = 0.95, show = 1, grey.scale = 0)
+mSet <- PlotPLS2DScore(mSet, "pls_score2d_1_", "png", 600, width = 7, inx1 = 1, inx2 = 3, reg = 0.95, show = 1, grey.scale = 0)
+mSet <- PlotPLS2DScore(mSet, "pls_score2d_2_", "png", 600, width = 7, inx1 = 2, inx2 = 3, reg = 0.95, show = 1, grey.scale = 0)
+mSet <- PlotPLS3DScoreImg(mSet, "pls_score3d_0_", "png", 600, width = 7, inx1 = 1, inx2 = 2, inx3 = 3, angl = 40)
+mSet <- PlotPLSLoading(mSet, "pls_loading_0_", "png", 600, width = 7, inx1 = 1, inx2 = 2, "scatter", lbl.feat = 1);
+mSet <- PLSDA.CV(mSet, "LOO", 8, "Q2")
+mSet <- PlotPLS.Classification(mSet, "pls_cv_0_", "png", 600, width = 7)
+mSet <- PlotPLS.Imp(mSet, "pls_imp_0_", "png", 600, width = 7, type = "vip", "Comp. 1", 10, FALSE)
+
+mSet <- SPLSR.Anal(mSet, comp.num = 8, var.num = 10, "same")
+mSet <- PlotSPLSPairSummary(mSet, "spls_pair_0_", "png", 600, width = 7, pc.num = 8)
+mSet <- PlotSPLS2DScore(mSet, "spls_score2d_0_", "png", 600, width = 7, inx1 = 1, inx2 = 2, reg = 0.95, show = 1, grey.scale = 0)
+mSet <- PlotSPLS3DScoreImg(mSet, "spls_score3d_0_", "png", 600, width = 7, inx1 = 1, inx2 = 2, inx3 = 3, angl = 40)
+mSet <- PlotSPLSLoading(mSet, "spls_loading_0_", "png", 600, width = 7, inx = 1, viewOpt = "overview")
+mSet <- PlotSPLSDA.Classification(mSet, "spls_cv_0_", "loo", "png", 600, width = 7)
+
+mSet <- OPLSR.Anal(mSet, reg = TRUE)
+mSet <- PlotOPLS2DScore(mSet, "opls_score2d_0_", "png", 600, width = 7, inx1 = 1, inx2 = 2, reg = 0.95, show = 1, grey.scale = 0)
+mSet <- PlotOPLS.Splot(mSet, "opls_splot_0_", "png", 600, width = 7, plotType = "all")
+mSet <- PlotOPLS.MDL(mSet, "opls_mdl_0_", "png", 600, width = 7)
+mSet <- PlotOPLS.Permutation(mSet, "opls_perm_1_", "png", 600, num = 2000, width = 7)
+
+mSet <- PlotHeatMap(mSet, "heatmap_0_", "png", dpi = 600, width = 7, 
+                    dataOpt = "norm", scaleOpt = "row", smplDist = "euclidean", 
+                    clstDist = "ward.D", palette = "bwm", viewOpt = "overview", 
+                    rowV = T, colV = T, var.inx = NA, border = T, grp.ave = F)
+mSet<-PlotSubHeatMap(mSet, "heatmap_1_", "png", 600, width = 7, "norm", "row", "euclidean", "ward.D", "bwm", 
+                     method.nm = "tanova", top.num = 25, "overview", T, T, T, F)
+mSet<-PlotSubHeatMap(mSet, "heatmap_2_", "png", 600, width = 7, "norm", "row", "euclidean", "ward.D", "bwm", 
+                     method.nm = "vip", top.num = 25, "overview", T, T, T, F)
+
+mSet <- RF.Anal(mSet, treeNum = 5000, tryNum = 20, randomOn = 1)
+mSet <- PlotRF.Classify(mSet, "rf_cls_1_", "png", 600, width = 7)
+mSet <- PlotRF.VIP(mSet, "rf_imp_1_", "png", 600, width = 7)
+mSet <- PlotRF.Outlier(mSet, "rf_outlier_1_", "png", 600, width = 7)
+
+mSet <- SaveTransformedData(mSet)
+mSet <- PreparePDFReport(mSet, "CCP")
+
+setwd("../")
+```
+
+```{r Significant Features}
+stat.files <- list.files(path = "MetaboAnalyst", pattern = "plsda_vip.csv|volcano.csv|t_test.csv|splsda_loadings.csv", full.names = T)
+stat.res <- lapply(stat.files, read.csv, check.names = F) %>% setNames(., stat.files %>% basename)
+```
 "Derivative signals such as isotopes, adducts, dimers and fragments, can be automatically annotated by correlation analysis on both signal shape and intensity patterns using software tools like CAMERA, PUTMEDID-LCMS and mzMatch. Such peaks are not discarded, but only flagged, so that their assigned annotations can be taken into account in the metabolite identification step."
 
 We want to answer the questions which peaks occur from the same molecule and secondly compute its exact mass and annotate the ion species.
