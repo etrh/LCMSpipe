@@ -1225,7 +1225,75 @@ top.features.intensity$SPLSDA$most.intense <- colnames(DFSPLS)[apply(DFSPLS,1,wh
 DFVOL <- top.features.intensity$Volcano[,6:length(top.features.intensity$Volcano)]
 top.features.intensity$Volcano$most.intense <- colnames(DFVOL)[apply(DFVOL,1,which.max)]
 
-lapply(top.features.intensity, function(x) (x$mz.rt)) %>% unlist %>% table > 1
+top.features.intensity$PLSDA$Stat.Method <- rep("PLSDA", top.features.intensity$PLSDA %>% nrow)
+top.features.intensity$SPLSDA$Stat.Method <- rep("SPLSDA", top.features.intensity$PLSDA %>% nrow)
+top.features.intensity$Volcano$Stat.Method <- rep("Volcano", top.features.intensity$PLSDA %>% nrow)
+
+dupl.features <- lapply(top.features.intensity, function(x) (x$mz.rt)) %>% unlist %>% table > 1
+dupl.features <- which(dupl.features == T)
+dupl.features
+
+top.features.intensity <- lapply(top.features.intensity, function(x){
+  cbind(
+    stringr::str_split_fixed(x$mz.rt %>% stringr::str_replace_all("M", ""), "T", 2) %>% as.data.frame() %>% dplyr::rename(mz = V1, rt.seconds = V2),
+    x
+  )
+})
+
+### Evaluate significant peaks
+dir.create("SignificantPeaks")
+
+uniq.peaks <- lapply(top.features.intensity, function(x) (x$mz.rt)) %>% unlist %>% unique
+uniq.peaks.mzrt <- stringr::str_split_fixed(uniq.peaks %>% stringr::str_replace_all("M", ""), "T", 2) %>% as.data.frame() %>% dplyr::rename(mz = V1, rt.seconds = V2)
+
+uniq.features <- cbind(uniq.peaks,uniq.peaks.mzrt) %>% dplyr::rename(ID = uniq.peaks)
+uniq.features$mz <- as.numeric(as.character(uniq.features$mz))
+uniq.features$rt.seconds <- as.numeric(as.character(uniq.features$rt.seconds))
+
+for(i in 1:nrow(uniq.features)){
+  thisMZ <- c(uniq.features$mz[i] - 0.1, uniq.features$mz[i] + 0.1)
+  thisRT <- c(uniq.features$rt.seconds[i] - 5, uniq.features$rt.seconds[i] + 5)
+  thisID <- uniq.features$ID[i]
+  
+  chr_raw <- chromatogram(raw_data, mz = thisMZ, rt = thisRT)
+  
+  png(paste0("SignificantPeaks/", thisID, ".png"), width = 7, height = 7, units = "in", res = 400)
+  
+  plot(chr_raw, col = group_colors[chr_raw$sample_group], main = paste0("EIC. m/z: ", thisMZ[1], "-", thisMZ[2], " | RT: ", thisRT[1], "-", thisRT[2]))
+  legend("topleft", col = group_colors, legend = names(group_colors), lty = 1)
+  
+  dev.off()
+}
+
+### Now manually inspect the generated plots and remove those plots that show noisy/nonsensical peaks and then run the following command
+### This code will remove those peaks that you delete from the SignificantPeaks directory
+top.features.processed <- lapply(top.features.intensity, 
+                                 function(x){
+                                   x[which(x$mz.rt %in% tools::file_path_sans_ext(dir("SignificantPeaks/"))),]
+                                   }
+                                 )
+
+
+### Write the result to file
+sink('SignificantPeaks/_significant_features_detailed.csv')
+
+cat('WARNING: these features were detected as significantly different by more than just one method:,', 
+    paste(dupl.features %>% names, collapse = ", "))
+
+cat('\n')
+cat('\n')
+
+for(i in 1:length(top.features.processed)){
+    cat('Features by ', names(top.features.processed)[i])
+    cat('\n')
+    write.csv(top.features.intensity[[i]])
+    cat('____________________________')
+    
+    cat('\n')
+    cat('\n')
+}
+
+sink()
 ```
 "Derivative signals such as isotopes, adducts, dimers and fragments, can be automatically annotated by correlation analysis on both signal shape and intensity patterns using software tools like CAMERA, PUTMEDID-LCMS and mzMatch. Such peaks are not discarded, but only flagged, so that their assigned annotations can be taken into account in the metabolite identification step."
 
