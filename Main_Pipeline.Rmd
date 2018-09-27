@@ -1103,7 +1103,7 @@ dir.create("MetaboAnalyst")
 setwd("MetaboAnalyst/")
 
 mSet <- SanityCheckData(mSet)
-mSet <- ReplaceMin(mSet);
+mSet <- ReplaceMin(mSet)
 mSet <- Normalization(mSet, rowNorm = "QuantileNorm", transNorm = "LogNorm", scaleNorm = "NULL", ratio = FALSE, ratioNum = 20)
 
 mSet <- PlotNormSummary(mSet, imgName = "normalization_0_", format = "png", dpi = 600, width = 7)
@@ -1161,10 +1161,10 @@ mSet <- PlotHeatMap(mSet, "heatmap_0_", "png", dpi = 600, width = 7,
                     dataOpt = "norm", scaleOpt = "row", smplDist = "euclidean", 
                     clstDist = "ward.D", palette = "bwm", viewOpt = "overview", 
                     rowV = T, colV = T, var.inx = NA, border = T, grp.ave = F)
-mSet<-PlotSubHeatMap(mSet, "heatmap_1_", "png", 600, width = 7, "norm", "row", "euclidean", "ward.D", "bwm", 
-                     method.nm = "tanova", top.num = 25, "overview", T, T, T, F)
-mSet<-PlotSubHeatMap(mSet, "heatmap_2_", "png", 600, width = 7, "norm", "row", "euclidean", "ward.D", "bwm", 
-                     method.nm = "vip", top.num = 25, "overview", T, T, T, F)
+mSet <- PlotSubHeatMap(mSet, "heatmap_1_", "png", 600, width = 7, "norm", "row", "euclidean", "ward.D", "bwm", 
+                       method.nm = "tanova", top.num = 25, "overview", T, T, T, F)
+mSet <- PlotSubHeatMap(mSet, "heatmap_2_", "png", 600, width = 7, "norm", "row", "euclidean", "ward.D", "bwm", 
+                       method.nm = "vip", top.num = 25, "overview", T, T, T, F)
 
 mSet <- RF.Anal(mSet, treeNum = 5000, tryNum = 20, randomOn = 1)
 mSet <- PlotRF.Classify(mSet, "rf_cls_1_", "png", 600, width = 7)
@@ -1180,6 +1180,52 @@ setwd("../")
 ```{r Significant Features}
 stat.files <- list.files(path = "MetaboAnalyst", pattern = "plsda_vip.csv|volcano.csv|t_test.csv|splsda_loadings.csv", full.names = T)
 stat.res <- lapply(stat.files, read.csv, check.names = F) %>% setNames(., stat.files %>% basename)
+
+rownames(stat.res$plsda_vip.csv) <- stat.res$plsda_vip.csv[,1]
+stat.res$plsda_vip.csv <- stat.res$plsda_vip.csv[,-1]
+
+rownames(stat.res$splsda_loadings.csv) <- stat.res$splsda_loadings.csv[,1]
+stat.res$splsda_loadings.csv <- stat.res$splsda_loadings.csv[,-1]
+
+rownames(stat.res$volcano.csv) <- stat.res$volcano.csv[,1]
+stat.res$volcano.csv <- stat.res$volcano.csv[,-1]
+
+pls.res <- stat.res$plsda_vip.csv[which(abs(stat.res$plsda_vip.csv$`Comp. 1`) > 4.0 | abs(stat.res$plsda_vip.csv$`Comp. 2`) > 4.0),]
+spls.res <- stat.res$splsda_loadings.csv[which(abs(stat.res$splsda_loadings.csv$`comp 1`) > 0.4 | abs(stat.res$splsda_loadings.csv$`comp 2`) > 0.4),]
+
+top.features <- list(PLSDA = pls.res, SPLSDA = spls.res, Volcano = stat.res$volcano.csv)
+
+top.features.intensity <- lapply(top.features, function(x){merge(x, metaboanalyst_dat[-1,] %>% as.data.frame, by = "row.names")})
+top.features.intensity <- lapply(top.features.intensity, function(x){dplyr::rename(x, mz.rt = Row.names)})
+
+top.features.intensity$PLSDA[ , !names(top.features.intensity$PLSDA) %in% paste0("Comp. ", 3:8)] -> top.features.intensity$PLSDA
+top.features.intensity$SPLSDA[ , !names(top.features.intensity$SPLSDA) %in% paste0("comp ", 3:8)] -> top.features.intensity$SPLSDA
+
+for(i in 4:length(top.features.intensity$PLSDA))
+{
+  top.features.intensity$PLSDA[,i] %<>% as.character %>% as.numeric
+}
+
+for(i in 4:length(top.features.intensity$SPLSDA))
+{
+  top.features.intensity$SPLSDA[,i] %<>% as.character %>% as.numeric
+}
+
+for(i in 6:length(top.features.intensity$Volcano))
+{
+  top.features.intensity$Volcano[,i] %<>% as.character %>% as.numeric
+}
+
+DFPLS <- top.features.intensity$PLSDA[,4:length(top.features.intensity$PLSDA)]
+top.features.intensity$PLSDA$most.intense <- colnames(DFPLS)[apply(DFPLS,1,which.max)]
+
+DFSPLS <- top.features.intensity$SPLSDA[,4:length(top.features.intensity$SPLSDA)]
+top.features.intensity$SPLSDA$most.intense <- colnames(DFSPLS)[apply(DFSPLS,1,which.max)]
+
+DFVOL <- top.features.intensity$Volcano[,6:length(top.features.intensity$Volcano)]
+top.features.intensity$Volcano$most.intense <- colnames(DFVOL)[apply(DFVOL,1,which.max)]
+
+lapply(top.features.intensity, function(x) (x$mz.rt)) %>% unlist %>% table > 1
 ```
 "Derivative signals such as isotopes, adducts, dimers and fragments, can be automatically annotated by correlation analysis on both signal shape and intensity patterns using software tools like CAMERA, PUTMEDID-LCMS and mzMatch. Such peaks are not discarded, but only flagged, so that their assigned annotations can be taken into account in the metabolite identification step."
 
