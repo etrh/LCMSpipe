@@ -1226,8 +1226,8 @@ DFVOL <- top.features.intensity$Volcano[,6:length(top.features.intensity$Volcano
 top.features.intensity$Volcano$most.intense <- colnames(DFVOL)[apply(DFVOL,1,which.max)]
 
 top.features.intensity$PLSDA$Stat.Method <- rep("PLSDA", top.features.intensity$PLSDA %>% nrow)
-top.features.intensity$SPLSDA$Stat.Method <- rep("SPLSDA", top.features.intensity$PLSDA %>% nrow)
-top.features.intensity$Volcano$Stat.Method <- rep("Volcano", top.features.intensity$PLSDA %>% nrow)
+top.features.intensity$SPLSDA$Stat.Method <- rep("SPLSDA", top.features.intensity$SPLSDA %>% nrow)
+top.features.intensity$Volcano$Stat.Method <- rep("Volcano", top.features.intensity$Volcano %>% nrow)
 
 dupl.features <- lapply(top.features.intensity, function(x) (x$mz.rt)) %>% unlist %>% table > 1
 dupl.features <- which(dupl.features == T)
