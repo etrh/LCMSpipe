@@ -75,6 +75,9 @@ library(RColorBrewer)
 
 library(plotly)
 library(rJava)
+
+library(dplyr)
+library(shiny)
 ```
 
 ```{r Convert Agilent data to mzML}
@@ -802,6 +805,36 @@ highlightChromPeaks(xdata, border = group_colors[chr_raw$sample_group],
 dev.off()
 
 ## Take a look at some of the identified peaks
+
+## Fill in the area
+random_peak_idx <- c(1, 5, 10, 50, 100, sample(seq(from = 1, to = dim(chromPeaks(xdata))[1], by = 3), size = 100, replace = TRUE))
+dir.create("QC")
+dir.create("QC/09 - EIC")
+
+for(i in random_peak_idx){
+    
+    mzr <- c(chromPeaks(xdata)[i,"mzmin"] - 0.005, chromPeaks(xdata)[i,"mzmax"] + 0.005)
+    rtr <- c(chromPeaks(xdata)[i,"rtmin"] %>% floor - 50, chromPeaks(xdata)[i,"rtmax"] %>% ceiling + 50)
+    
+    png(paste0("QC/09 - EIC/09 - Identified_peaks_in_mz_", mzr[1], "-", mzr[2], "_rt_", rtr[1], "-", rtr[2], ".png"), 
+        width = 15, height = 11, unit = "in", res = 300)
+    par(mfrow=c(n2mfrow(length(mzml.files))))
+    
+    for(i in 1:length(mzml.files)){
+    
+    chr_raw <- chromatogram(raw_data %>% filterFile(i), mz = mzr, rt = rtr)
+    
+    plot(chr_raw, col = group_colors[chr_raw$sample_group], lwd = 2)
+    highlightChromPeaks(type = "polygon", xdata %>% filterFile(i), col = group_colors[chr_raw$sample_group], lty = 3, rt = rtr, mz = mzr)
+    
+    }
+    
+    dev.off()
+}
+
+
+
+
 random_peak_idx <- c(1, 5, 10, 50, 100, sample(seq(from = 1, to = dim(chromPeaks(xdata))[1], by = 3), size = 100, replace = TRUE))
 
 cl <- parallel::makeCluster(50)
