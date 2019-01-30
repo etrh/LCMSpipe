@@ -450,6 +450,11 @@ plot(tTSNE.samples$Y, main="T-distributed Stochastic Neighbor Embedding (tSNE)\n
 # https://distill.pub/2016/misread-tsne/#citation
 # https://medium.com/@danielcanueto/validation-of-the-benefits-of-use-of-t-sne-in-metabolomics-studies-5018253b8173
 # https://medium.com/@TheDataGyan/dimensionality-reduction-with-pca-and-t-sne-in-r-2715683819
+
+df = data.frame(tsne::tsne(X = t %>% na.omit %>% t))
+colnames(df) = c("tSNE1","tSNE2")
+df$grouping = labels.plot
+ggplot(df, aes(x=tSNE1,y=tSNE2,colour=grouping)) + geom_point() + theme_classic() + scale_colour_manual(values=sample_colors)
 ```
 
 
@@ -491,7 +496,7 @@ metlin_table <- list(NULL)
 metlin_res <- list(NULL)
 metlin_res_tbl <- list(NULL)
 
-for(i in length(significant_features_mz)){
+for(i in 1:length(significant_features_mz)){
   metlin_table[[i]] <- xml2::read_html(paste0('https://metlin.scripps.edu/simple_search_result.php?mass_mid=', significant_features_mz[i],
        '&mass_tol=', mz_tolerance_ppm, '&mass_mode=1&AminoAcid=add&toxinEPA=add&adducts=M%2BH'))
   metlin_res[[i]] <- rvest::html_nodes(metlin_table[[i]], "table")
