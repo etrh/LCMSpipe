@@ -9,5 +9,5 @@ getRunOrder <- function(mzml.files){
              sub(pattern = "Z", replacement = "") %>% 
              as.character.Date())
   }
-  ) %>% unlist
+  ) %>% unlist %>% stringr::str_split_fixed(., " --> ", 2)
 }

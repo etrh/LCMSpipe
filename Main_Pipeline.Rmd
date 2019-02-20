@@ -1871,78 +1871,66 @@ download.file("http://facultyweb.mga.edu/yingfeng.wang/research/metabolomics/mid
 ```{r Batch Correction -- NOT FUNCTIONAL -- UNDER DEVELOPMENT}
 devtools::install_git("https://gitlab.com/CarlBrunius/batchCorr.git")
 
-path.pos <- "Data/Freezing_Exp_All/pos/"
-pos.mzml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzML")
-pos.mzml
-
-param.ppm <- 30
-param.snthresh <- 3
-param.prefilter <- c(5, 10000)
-param.noise <- 6500
-param.peakwidth <- c(20, 50)
-param.parallelization <- MulticoreParam(floor(detectCores() * 0.95)) ### use 90% of the cores for parallel computing
-
-xset.batch <- xcmsSet(pos.mzml, method = "centWaveWithPredictedIsotopeROIs", 
-                          ppm = param.ppm, 
-                          snthresh = param.snthresh, 
-                          prefilter = param.prefilter, 
-                          noise = param.noise, 
-                          peakwidth = param.peakwidth,
-                          BPPARAM = param.parallelization)
-
-xset.batch <- group(xset.batch)
-xset.batch <- retcor(xset.batch, family="gaussian", plottype="mdevden")
-xset.batch <- group(xset.batch)
-xset.batch <- retcor(xset.batch, family="gaussian", plottype="mdevden")
-
-QC_nofill <- group(xset.batch)
-QC_fill <- fillPeaks(QC_nofill, method = "chrom")
-
-
-# Organise into peaktable with missing data
-    QCB = grabAlign(QC_nofill,batch='Fresh',grp='Mouse1')
-    RefB=grabAlign(QC_nofill,batch='Fresh',grp='Mouse4')
-    QCF=grabAlign(QC_nofill,batch='Frozen',grp='Mouse2')
-    RefF=grabAlign(QC_nofill,batch='Frozen',grp='Mouse4')
-    QCH=grabAlign(QC_nofill,batch='Refrozen',grp='Mouse5')
-    RefH=grabAlign(QC_nofill,batch='Refrozen',grp='Mouse4')
-    PTnofill=rbind(QCB,RefB,QCF,RefF,QCH,RefH)
-    
-# Organise into peaktable without missing data
-    QCB = grabAlign(QC_fill,batch='Fresh',grp='Mouse1')
-    RefB=grabAlign(QC_fill,batch='Fresh',grp='Mouse4')
-    QCF=grabAlign(QC_fill,batch='Frozen',grp='Mouse2')
-    RefF=grabAlign(QC_fill,batch='Frozen',grp='Mouse4')
-    QCH=grabAlign(QC_fill,batch='Refrozen',grp='Mouse5')
-    RefH=grabAlign(QC_fill,batch='Refrozen',grp='Mouse4')
-    PTfill=rbind(QCB,RefB,QCF,RefF,QCH,RefH)
-    
-    # Set up metadata (Quick'n'Dirty approach)
-    batch=c(rep('B',nrow(QCB)+nrow(RefB)),rep('F',nrow(QCF)+nrow(RefF)),rep('H',nrow(QCH)+nrow(RefH)))
-    grp=c(rep('Q',nrow(QCB)),rep('R',nrow(RefB)),rep('Q',nrow(QCF)),rep('R',nrow(RefF)),rep('Q',nrow(QCH)),rep('R',nrow(RefH)))
-    meta=cbind(batch,grp)
+peakList_QC_nofill <- read.csv("QC_HumanPlasma_3batches_with_QC/batchCorr_Data/transposed_PeakIntensityMatrix_MetaboAnalyst_withQCsamples.csv", header = T)
+peakList_QC_imputed <- read.csv("QC_HumanPlasma_3batches_with_QC/batchCorr_Data/transposed_SVD_IMPUTED_PeakIntensityMatrix_MetaboAnalyst_withQCsamples.csv", header = T)
+metadata_humanPlasma <- read.csv("QC_HumanPlasma_3batches_with_QC/batchCorr_Data/Metadata.csv", header = T)
+peakList_QC_imputed$X -> rownames(peakList_QC_imputed)
+peakList_QC_imputed[,-1] -> peakList_QC_imputed
+peakList_QC_nofill$X -> rownames(peakList_QC_nofill)
+peakList_QC_nofill[,-1] -> peakList_QC_nofill
+sub("$", "+", peakList_QC_imputed %>% rownames()) -> rownames(peakList_QC_imputed)
+peakList_QC_nofill[match((metadata_humanPlasma$X), rownames(peakList_QC_nofill)), ] -> peakList_QC_nofill_sorted
+peakList_QC_imputed[match((metadata_humanPlasma$X), rownames(peakList_QC_imputed)), ] -> peakList_QC_imputed_sorted
 
 ## Perform batch alignment
+
 # Extract peakinfo (i.e. m/z and rt of features)
-peakIn=peakInfo(PTnofill)
+peakIn <- peakInfo(PT = peakList_QC_nofill_sorted, sep = 'T', start = 2)
 
-# Flag presence/missingness on batch level
-bF=batchFlag(PTnofill,meta,peakIn)
-
-# Find possible alignment candidates per sample type
-aIQ=alignIndex(bF,grpType='Q',mzdiff=0.002,rtdiff=15,report=T,reportName='splits_aIQ')
-
-# Plot achieved alignments
-plotAlign(bF,aIQ,plotType='pdf',reportName='clustPlots_aIQ')
-
-# Perform alignment -> Peaktable
-bA=batchAlign(bF,aIQ,PTfill,meta)
-
+# Perform multi-batch alignment
+alignBat <- alignBatches(peakInfo = peakIn, PeakTabNoFill = peakList_QC_nofill_sorted, 
+                         PeakTabFilled = peakList_QC_imputed_sorted, batches = metadata_humanPlasma$Batch, 
+                         sampleGroups = metadata_humanPlasma$Group, selectGroup = 'QC')
 # Extract new peak table
-PT=bA$PTalign
+PT <- alignBat$PTalign
 
-dim(PT)
+# Batch A
+batchB <- getBatch(peakTable = PT, meta = metadata_humanPlasma, batch = metadata_humanPlasma$Batch, select = 'A')
+BCorr <- correctDrift(peakTable = batchB$peakTable, injections = batchB$meta$InjOrder, sampleGroups = batchB$meta$Group, QCID = 'QC', G = seq(5,35,by=3))
 
+# Batch B
+batchF <- getBatch(peakTable = PT, meta = metadata_humanPlasma, batch = metadata_humanPlasma$Batch, select = 'B')
+FCorr <- correctDrift(peakTable = batchF$peakTable, injections = batchF$meta$InjOrder, sampleGroups = batchF$meta$Group, QCID = 'QC', G = seq(5,35,by=3))
+
+# Batch C
+batchH <- getBatch(peakTable = PT, meta = metadata_humanPlasma, batch = metadata_humanPlasma$Batch, select = 'C')
+HCorr <- correctDrift(peakTable = batchH$peakTable, injections = batchH$meta$InjOrder, sampleGroups = batchH$meta$Group, QCID = 'QC', G = seq(5,35,by=3))
+
+
+# Merge drift-corrected data and normalize
+mergedData <- mergeBatches(list(BCorr,FCorr,HCorr))
+
+normData_samplePop <- normalizeBatches(peakTable = mergedData$peakTable, 
+                                       batches = metadata_humanPlasma$Batch, 
+                                       sampleGroup = metadata_humanPlasma$Group, population = 'Sample')
+
+normData_allPopu <- normalizeBatches(peakTable = mergedData$peakTable, 
+                                       batches = metadata_humanPlasma$Batch, 
+                                       sampleGroup = metadata_humanPlasma$Group, population = 'all')
+
+PTnorm_samplePopulation <- normData_samplePop$peakTable
+PTnorm_allPopulation <- normData_allPopu$peakTable
+
+if(identical(rownames(PTnorm_allPopulation), as.character(metadata_humanPlasma$X))) {
+  metaboanalyst_PTnorm_allPopulation <- cbind(Group = interaction(metadata_humanPlasma$Group, metadata_humanPlasma$Batch), PTnorm_allPopulation)
+}
+
+if(identical(rownames(PTnorm_samplePopulation), as.character(metadata_humanPlasma$X))) {
+  metaboanalyst_PTnorm_samplePopulation <- cbind(Group = interaction(metadata_humanPlasma$Group, metadata_humanPlasma$Batch), PTnorm_samplePopulation)
+}
+
+write.csv(x = metaboanalyst_PTnorm_allPopulation, "batch_corrected_metaboanalyst_over_all_population.csv")
+write.csv(x = metaboanalyst_PTnorm_samplePopulation, "batch_corrected_metaboanalyst_over_Sample_population.csv")
 ```
 
 ```{r Calculate monoisotopic mass from formula and plot isotopes}
