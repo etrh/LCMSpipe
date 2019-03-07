@@ -825,12 +825,12 @@ for(i in random_peak_idx){
         width = 15, height = 11, unit = "in", res = 300)
     par(mfrow=c(n2mfrow(length(mzml.files))))
     
-    for(i in 1:length(mzml.files)){
+    for(j in 1:length(mzml.files)){
     
-    chr_raw <- chromatogram(raw_data %>% filterFile(i), mz = mzr, rt = rtr)
+    chr_raw <- chromatogram(raw_data %>% filterFile(j), mz = mzr, rt = rtr)
     
     plot(chr_raw, col = group_colors[chr_raw$sample_group], lwd = 2)
-    highlightChromPeaks(type = "polygon", xdata %>% filterFile(i), col = group_colors[chr_raw$sample_group], lty = 3, rt = rtr, mz = mzr)
+    highlightChromPeaks(type = "polygon", xdata %>% filterFile(j), col = group_colors[chr_raw$sample_group], lty = 3, rt = rtr, mz = mzr)
     
     }
     
@@ -1142,6 +1142,7 @@ setwd("MetaboAnalyst/")
 
 mSet <- SanityCheckData(mSet)
 mSet <- ReplaceMin(mSet)
+mSet <- PreparePrenormData(mSet)
 mSet <- Normalization(mSet, rowNorm = "QuantileNorm", transNorm = "LogNorm", scaleNorm = "NULL", ratio = FALSE, ratioNum = 20)
 
 mSet <- PlotNormSummary(mSet, imgName = "normalization_0_", format = "png", dpi = 600, width = 7)
@@ -1931,6 +1932,15 @@ if(identical(rownames(PTnorm_samplePopulation), as.character(metadata_humanPlasm
 
 write.csv(x = metaboanalyst_PTnorm_allPopulation, "batch_corrected_metaboanalyst_over_all_population.csv")
 write.csv(x = metaboanalyst_PTnorm_samplePopulation, "batch_corrected_metaboanalyst_over_Sample_population.csv")
+```
+
+```{r BatchCorrMetabolomics}
+batchCorrectedPeaks <- BatchCorrMetabolomics::doBC(Xvec = t(peakList_QC_nofill_sorted), 
+                            ref.idx = as.numeric(rownames(metadata_humanPlasma[which(metadata_humanPlasma$Group == "QC"),])), 
+                            batch.idx = metadata_humanPlasma$Batch %>% as.factor %>% as.numeric, 
+                            seq.idx = metadata_humanPlasma$InjOrder, 
+                            method = "lm", 
+                            minBsamp = 3)
 ```
 
 ```{r Calculate monoisotopic mass from formula and plot isotopes}
