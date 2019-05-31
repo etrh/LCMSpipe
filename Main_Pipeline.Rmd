@@ -1,16 +1,17 @@
 ---
 title: "Pipeline for Analysis of Metabolomics Data in R"
 author: "Ashkan Zareie"
-date: "August-September 2017"
-output: html_document
+date: "Since 08/2017"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
 ---
   
   
-On UNIX-based systems you will first need to ensure that the following requirements are installed:  
-  `sudo apt-get install -y libxml2-dev libcurl4-openssl-dev libssl-dev netcdf-bin libnetcdf-dev gfortran libblas-dev liblapack-dev libpcre++-dev liblzma-dev libbz2-dev libgtk2.0-dev bwidget libglu1-mesa-dev freeglut3-dev mesa-common-dev default-jre default-jdk libmariadbclient-dev libmariadb-client-lgpl-dev texinfo texlive`
-  
-  
-```{r Setup, include=FALSE}
+```{r Requirements, eval=FALSE, include=FALSE}
+"On UNIX-based systems you will first need to ensure that the following requirements are installed:  
+  `sudo apt-get install -y libxml2-dev libcurl4-openssl-dev libssl-dev netcdf-bin libnetcdf-dev gfortran libblas-dev liblapack-dev libpcre++-dev liblzma-dev libbz2-dev libgtk2.0-dev bwidget libglu1-mesa-dev freeglut3-dev mesa-common-dev default-jre default-jdk libmariadbclient-dev libmariadb-client-lgpl-dev texinfo texlive`"
 # # # # - - - - IMPORTANT: make sure you have the latest version of R installed - - - - # # # #
 
 # system("echo 'R_MAX_NUM_DLLS=500' > $HOME/.Renviron") ### do this only if you get the 'Maximal number of DLLs reached' error
@@ -62,514 +63,28 @@ biocValid()
 devtools::install_git("https://gitlab.com/R_packages/massageR.git")
 devtools::install_github("stanstrup/QC4Metabolomics/MetabolomiQCsR")
 devtools::install_github("stanstrup/commonMZ")
+```
 
+```{r Setup, include=FALSE}
 library(MSnbase)
 library(xcms)
 library(CAMERA)
-library(IPO)
+#library(IPO)
 library(MetaboAnalystR)
-library(MetabolomiQCsR)
+#library(MetabolomiQCsR)
 
 library(doParallel)
 library(RColorBrewer)
 
-library(plotly)
-library(rJava)
+#library(plotly)
+#library(rJava)
 
 library(dplyr)
 library(shiny)
 ```
 
-```{r Convert Agilent data to mzML}
-'msconvert *.d -o mzML'
-```
-
-```{r Load data, include=FALSE}
-path.pos <- "data/Rik/ESI+" #### path to converted positive mzML files
-path.neg <- "data/Rik/ESI-"
-
-### Creating sub-directories for samples/batches are allowed and recommended
-pos.mzml <- list.files(path.pos, recursive = T, full.names = T, pattern=".mzML")
-pos.mzml
-
-neg.mzml <- list.files(path.neg, recursive = T, full.names = T, pattern=".mzML")
-neg.mzml
-```
-
-**PEAK PICKING METHOD**  
-- 'matchedfilter' is used by default (when 'xcmsSet' method is used for loading data)  
-- 'centWave' is commonly used for high resolution spectra/MS data  
-- Irregardless of the peak picking method chosen, there are many parameters that can be tuned. The rule of thumb is, if you do not understand what a parameter exactly does, then it is best to use the default value.  
-- "Mass deviation μ in ppm, typically set to a generous multiple of the mass accuracy of the mass spectrometer. We use μ = 30 ppm for the Bruker MicrOTOF-Q, which is advertised with a mass accuracy of 3–5 ppm". (doi: 10.1186/1471-2105-9-504)  
-- Q: How do we find the best tuning parameters for our dataset? (e.g. 'fwhm' specifies full width at half maximum (default is 30s) based on the type of chromatography)  
-- Q: Is it a good idea to load all sample sets (Fresh, Frozen 24h, Frozen 1w) into one xcmsSet?
-
-```{r xcmsSet / peak identification}
-param.ppm <- 30
-param.snthresh <- 65
-param.prefilter <- c(5, 10000)
-param.noise <- 6500
-param.peakwidth <- c(12,28)
-param.parallelization <- MulticoreParam(floor(detectCores() * 0.9)) ### use 90% of the cores for parallel computing
-
-xset.pos.centw <- xcmsSet(pos.mzml, method = "centWaveWithPredictedIsotopeROIs", 
-                          ppm = param.ppm, 
-                          snthresh = param.snthresh, 
-                          prefilter = param.prefilter, 
-                          noise = param.noise, 
-                          peakwidth = param.peakwidth,
-                          BPPARAM = param.parallelization)
-
-xset.pos.mquant <- xcmsSet(pos.mzml, method = "massifquant", 
-                           withWave = TRUE, 
-                           ppm = param.ppm, 
-                           snthresh = param.snthresh, 
-                           prefilter = param.prefilter, 
-                           noise = param.noise, 
-                           peakwidth = param.peakwidth,
-                           BPPARAM = param.parallelization)
-
-param.neg.ppm <- 30
-param.neg.snthresh <- 30
-param.neg.prefilter <- c(5, 9000)
-param.neg.noise <- 4500
-param.neg.peakwidth <- c(12,35)
-
-xset.neg.centw <- xcmsSet(neg.mzml, method = "centWaveWithPredictedIsotopeROIs", 
-                          ppm = param.neg.ppm, 
-                          snthresh = param.neg.snthresh, 
-                          prefilter = param.neg.prefilter, 
-                          noise = param.neg.noise, 
-                          peakwidth = param.neg.peakwidth,
-                          BPPARAM = param.parallelization)
-
-xset.neg.mquant <- xcmsSet(neg.mzml, method = "massifquant", 
-                           withWave = TRUE, 
-                           ppm = param.neg.ppm, 
-                           snthresh = param.neg.snthresh, 
-                           prefilter = param.neg.prefilter, 
-                           noise = param.neg.noise, 
-                           peakwidth = param.neg.peakwidth,
-                           BPPARAM = param.parallelization)
-```
-
-
-```{r Viewing the constructed xcmsSet, echo=FALSE}
-xset.pos.centw
-xset.pos.mquant
-xset.neg.centw
-xset.neg.mquant
-```
-
-
-```{r Peaks}
-message(paste0("Sample groups: "))
-print(levels(sampclass(xset.pos.centw)))
-head(xset.pos.centw@peaks)
-dim(xset.pos.centw@peaks)
-
-message(paste0("Sample groups: "))
-print(levels(sampclass(xset.pos.mquant)))
-head(xset.pos.mquant@peaks)
-dim(xset.pos.mquant@peaks)
-
-message(paste0("Sample groups: "))
-print(levels(sampclass(xset.neg.centw)))
-head(xset.neg.centw@peaks)
-dim(xset.neg.centw@peaks)
-
-message(paste0("Sample groups: "))
-print(levels(sampclass(xset.neg.mquant)))
-head(xset.neg.mquant@peaks)
-dim(xset.neg.mquant@peaks)
-```
-
-**mz** Intensity weighted mean of m/z values of the peak across scans.  
-**mzmin** Minimum m/z of the peak.  
-**mzmax** Maximum m/z of the peak.  
-**rt** Retention time of the peak’s midpoint.  
-**rtmin** Minimum retention time of the peak.  
-**rtmax** Maximum retention time of the peak.  
-**into** Integrated (original) intensity of the peak.  
-**intf** Integrated intensity of the filtered peak.  
-**maxo** Maximum intensity of the peak.  
-**maxf** Maximum intensity of the filtered peak.  
-**i** Rank of peak in merged EIC (<= max).  
-**sn** Signal to noise ratio of the peak  
-
-- Grouping has its own methods too (density, mzClust, nearest)  
-Q: How do we tune grouping parameters? How do we find the best ones for our data?  
-```{r Grouping peaks representing the same analyte across samples / matching peaks across samples}
-#?group.density
-#?group.mzClust
-#?group.nearest
-
-#xsg.pos <- group(xset.pos, sleep = 0.02)
-
-xsg.pos.centw <- group(xset.pos.centw)
-xsg.pos.mquant <- group(xset.pos.mquant)
-
-xsg.neg.centw <- group(xset.neg.centw)
-xsg.neg.mquant <- group(xset.neg.mquant)
-
-xsg.pos.centw.mzClust <- group.mzClust(xset.pos.centw, mzppm = 5)
-xsg.pos.mquant.mzClust <- group.mzClust(xset.pos.mquant, mzppm = 5)
-
-xsg.neg.centw.mzClust <- group.mzClust(xset.neg.centw, mzppm = 5)
-xsg.neg.mquant.mzClust <- group.mzClust(xset.neg.mquant, mzppm = 5)
-```
-
-
-There are a few retention time correction methods in xcms: Gaussian, Symmetric, and Obiwarp.  
-Plot shows the data points used for regression and the resulting deviation profiles. It can be used for supervising the algorithm. The distribution of peak groups across retention time is also shown in the plot.  
-```{r Retention time correction}
-xsg.pos.centw.retcor <- retcor(xsg.pos.centw, family="gaussian", plottype="mdevden")
-xsg.pos.mquant.retcor <- retcor(xsg.pos.mquant, family="gaussian", plottype="mdevden")
-
-xsg.neg.centw.retcor <- retcor(xsg.neg.centw, family="gaussian", plottype="mdevden")
-xsg.neg.mquant.retcor <- retcor(xsg.neg.mquant, family="gaussian", plottype="mdevden")
-
-xsg.pos.centw.mzClust.retcor <- retcor(xsg.pos.centw.mzClust, family="gaussian", plottype="mdevden")
-xsg.pos.mquant.mzClust.retcor <- retcor(xsg.pos.mquant.mzClust, family="gaussian", plottype="mdevden")
-
-xsg.neg.centw.mzClust.retcor <- retcor(xsg.neg.centw.mzClust, family="gaussian", plottype="mdevden")
-xsg.neg.mquant.mzClust.retcor <- retcor(xsg.neg.mquant.mzClust, family="gaussian", plottype="mdevden")
-
-#xsg.pos.retcor.symmetric <- retcor(xsg.pos, family="symmetric", plottype="mdevden")
-#xsg.pos.retcor.obiwarp <- retcor.obiwarp(xsg.pos, plottype="deviation")
-
-xsg.pos.centw.retcor.obiwarp <- retcor.obiwarp(xsg.pos.centw, plottype="deviation")
-xsg.pos.mquant.retcor.obiwarp <- retcor.obiwarp(xsg.pos.mquant, plottype="deviation")
-
-xsg.neg.centw.retcor.obiwarp <- retcor.obiwarp(xsg.neg.centw, plottype="deviation")
-xsg.neg.mquant.retcor.obiwarp <- retcor.obiwarp(xsg.neg.mquant, plottype="deviation")
-
-xsg.pos.centw.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.pos.centw.mzClust, plottype="deviation")
-xsg.pos.mquant.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.pos.mquant.mzClust, plottype="deviation")
-
-xsg.neg.centw.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.neg.centw.mzClust, plottype="deviation")
-xsg.neg.mquant.mzClust.retcor.obiwarp <- retcor.obiwarp(xsg.neg.mquant.mzClust, plottype="deviation")
-```
-
-
-When re-grouping the retention time-corrected xset, parameters can also be re-tuned once more. For example, we can choose a narrower 'bw'.  
-```{r Re-grouping peaks representing the same analyte across samples. Grouping/retention time correction can and must be repeated several times}
-xsg.gaus.pos <- group(xsg.pos.mquant.mzClust.retcor.obiwarp)
-xsg.gaus.pos <- retcor.obiwarp(xsg.gaus.pos, plottype="deviation")
-xsg.gaus.pos <- group(xsg.gaus.pos)
-
-xsg.gaus.neg <- group(xsg.neg.mquant.mzClust.retcor.obiwarp)
-xsg.gaus.neg <- retcor(xsg.gaus.neg, family="gaussian", plottype="mdevden")
-xsg.gaus.neg <- group(xsg.gaus.neg)
-
-#xsg.sym <- group(xsg.pos.retcor.symmetric, bw=10)
-#xsg.obw <- group(xsg.pos.retcor.obiwarp, bw=10)
-```
-
-
-```{r Fill in missing peaks using original data, message=FALSE, warning=FALSE}
-xsg.gaus.pos <- fillPeaks(xsg.gaus.pos)
-xsg.gaus.neg <- fillPeaks(xsg.gaus.neg)
-#xsg.sym <- fillPeaks(xsg.sym)
-#xsg.obw <- fillPeaks(xsg.obw)
-```
-
-```{r QC}
-
-###intensity
-boxplot(groupval(xsg.gaus.pos, value="into")+1, 
-        col=as.numeric(sampclass(xsg.gaus.pos))+1, 
-        log="y", las=2)
-
-plotQC(xsg.gaus.pos)
-
-sdThresh <- 4.0 ## Filter low-standard deviation rows for plot
-data <- log(groupval(xsg.gaus.pos, value="into")+1)
-
-pca.result <- pcaMethods::pca(data, nPcs = 8)
-pcaMethods::plotPcs(pca.result, type="loadings", 
-        col=as.numeric(sampclass(xsg.gaus.pos))+1)
-
-pcares <- as.data.frame(pca.result@loadings)
-
-plotly::plot_ly(pcares, x = ~PC1, y = ~PC2, z = ~PC3, color = (sampclass(xsg.gaus.pos)), colors = c("#377EB8", "#4DAF4A")) %>%
-    add_markers() %>%
-    layout(scene = list(xaxis = list(title = 'PC #1'),
-                        yaxis = list(title = 'PC #2'),
-                        zaxis = list(title = 'PC #3')))
-
-#pca <- prcomp(t(data), scale.=TRUE)
-#gr <- factor(as.numeric(sampclass(xsg.gaus))+1)
-#summary(gr)
-#pca3d(pca, group=gr)
-```
-
-```{r Internal standard}
-mzml.file <- xcmsRaw("~/pbio/LC-MS/Data/QTOF_IMPC/FreezingExperiment/ESI+/14_days/83S-A0955_m_WT_FreezinExperiment2_14days_ESI+.mzML")
-mzr = c(288.2, 292.227)
-rtr = c(10.234*60, 10.402*60)
-plotRaw(mzml.file, mzrange = mzr, rtrange = rtr)
-
-all.mzml <- extractMsData(readMSData(list.files(path = "~/pbio/LC-MS/Data/QTOF_IMPC/FreezingExperiment/ESI+/28_days/", full.names = T), mode = "onDisk"), mz = mzr, rtr)
-for(i in 1:length(all.mzml)){
-    ggsave(filename = paste0("internal_standard",i,".png"), 
-           plot = plotMsData(all.mzml[[i]]), 
-           device = "png", dpi = 600, 
-           width = 10, height = 10)
-    graphics.off()
-}
-```
-
-"into" and "maxo" are (or at least seem to be) peak intensities and areas, respectively.  
-Peak list:  
-```{r Results of peak detection}
-peaks(xsg.gaus.pos)[1:25,]
-dim(xsg.gaus.pos@peaks)
-#dim(peaks(xsg.gaus.pos)) ### Another way of doing what was done in the previous line
-
-peaks(xsg.gaus.neg)[1:25,]
-dim(xsg.gaus.neg@peaks)
-```
-
-‘diffreport’ computes Welch's two-sample t-statistic for each analyte and ranks them by p-value. In brief, it performs univariate analysis on our peaks.  
-Q: When using 'diffreport', it is possible to include three sample classes (or even many more) by defining the class1/class2 arguments as c("sample2","sample3"). Does that, however, have any impact on the final result? In brief, is there a difference between `class1=c("Mouse1", "Mouse2"), class2="Mouse5"` and `class1="Mouse1", class2=c("Mouse2","Mouse5")`  
-```{r Extracting ion chromatograms for significant ions and reporting the most statistically significant differences in analyte intensities / A report showing the most significant differences between two sets of samples, message=FALSE}
-rep.gaus.pos <- diffreport(object = xsg.gaus.pos, 
-                       class1 = levels(sampclass(xsg.gaus.pos))[1], 
-                       class2 = levels(sampclass(xsg.gaus.pos))[2], 
-                       filebase = "diffreport_ESI_pos", eicmax = 40, 
-                       sortpval = TRUE,
-                       metlin = 0.5, mzdec = 5)
-
-rep.gaus.neg <- diffreport(object = xsg.gaus.neg, 
-                       class1 = levels(sampclass(xsg.gaus.neg))[1], 
-                       class2 = levels(sampclass(xsg.gaus.neg))[2], 
-                       filebase = "diffreport_ESI_neg", eicmax = 40, 
-                       sortpval = TRUE,
-                       metlin = 0.5, mzdec = 5)
-
-#### quality of peaks can be inspected by checking the figures in report_eic folder
-
-#rep.sym <- diffreport(xsg.sym, "Fresh", c("Frozen 1w", "Frozen 24h"), "Symmetric", 10, metlin=0.15)
-#rep.obw <- diffreport(xsg.obw, "Fresh", c("Frozen 1w", "Frozen 24h"), "Obiwarp", 10, metlin=0.15)
-
-rep.gaus.pos[1:25,]
-tail(rep.gaus.pos)
-
-rep.gaus.neg[1:25,]
-tail(rep.gaus.neg)
-
-#rep.sym[1:10,]
-#rep.obw[1:10,]
-```
-
-```{r DifferentPeaks}
-eic <- list.files("diffreport_eic", full.names = T, recursive = T)
-im <- list()
-for(i in 1:length(eic)) {
-  im[[i]] <- load.image(eic[i])
-  plot(im[[i]])
-  }
-```
-
-
-```{r Constructing peak intensity matrix for multivariate analysis using MetaboAnalyst.ca}
-#– Features (peaks) are in rows
-#– Samples are in  columns
-#– Group labels must be added by using 'phenoData'
-#- If there are duplicated mzRT values in the rows of the generated peak intensity matrix, MetaboAnalyst will result in an error. To fix this error, simply distinguish repeated values by adding 'A', 'B', 'C', etc. to them. For example, if you have the mzRT feature 54.04/1499.3 twice in the resulting table, simply change the second one to 54.04/1499.3A
-dat <- groupval(xsg.gaus.pos, "medret", "into")
-rownames(dat) <- groupnames(xsg.gaus.pos, mzdec=5, rtdec=5)
-dat <- rbind(group = as.character(phenoData(xsg.gaus.pos)$class), dat)
-write.csv(dat, file='ESI+_PeakIntensityMatrix_MetaboAnalyst.csv')
-head(dat)
-tail(dat)
-#rm(dat)
-
-datneg <- groupval(xsg.gaus.neg, "medret", "into")
-rownames(datneg) <- groupnames(xsg.gaus.neg, mzdec=5, rtdec=5)
-datneg <- rbind(group = as.character(phenoData(xsg.gaus.neg)$class), datneg)
-write.csv(datneg, file='ESI-_PeakIntensityMatrix_MetaboAnalyst.csv')
-head(datneg)
-tail(datneg)
-#rm(datneg)
-
-#dat <- groupval(xsg.sym, "medret", "into")
-#dat <- rbind(group = as.character(phenoData(xsg.sym)$class), dat)
-#write.csv(dat, file='Symmetric_PeakIntensityMatrix.csv')
-#rm(dat)
-
-#dat <- groupval(xsg.obw, "medret", "into")
-#dat <- rbind(group = as.character(phenoData(xsg.obw)$class), dat)
-#write.csv(dat, file='Obiwarp_PeakIntensityMatrix.csv')
-#rm(dat)
-```
-
-```{r Extracted ion chromatogram (EIC) / Assessing the quality of detected peaks}
-#gt.gaus <- groups(xsg.gaus)
-#gt.gaus[1:3,]
-
-#gt.sym <- groups(xsg.sym)
-#gt.sym[1:3,]
-
-#gt.obw <- groups(xsg.obw)
-#gt.obw[1:3,]
-
-#grp_idx_gaus <- which(gt.gaus[,"rtmed"] > 0 & gt.gaus[,"rtmed"] < 500 & gt.gaus[,"npeaks"] > 50)[1]
-#eiccor.gaus <- getEIC(xsg.gaus, groupidx=grp_idx_gaus)
-#plot(eiccor.gaus, col=as.numeric(phenoData(xsg.gaus)$class))
-```
-
-```{r Independent Component Analysis (ICA) / T-distributed Stochastic Neighbor Embedding (tSNE) --- UNDER DEVELOPMENT | Be cautious}
-t <- dat
-head(t)
-labels.plot <- t[1,][-1]
-t <- t[-1,]
-
-# for(i in 1:dim(t)[2]){
-# t[,i] <- as.numeric(as.character(t[,i]))
-# }
-
-write.csv(x = t, file = "t.csv")
-t <- (read.csv("t.csv", header = TRUE, stringsAsFactors = FALSE, row.names = 1, check.names = FALSE))
-
-tICA <- fastICA::fastICA(t, n.comp = 2)
-
-sample_colors <- brewer.pal(2, "Set1")[1:2]
-names(sample_colors) <- unique(labels.plot)
-cols <- paste0(sample_colors[labels.plot], 80)
-tTSNE.features <- Rtsne(t)
-tTSNE.samples <- Rtsne(t(t), perplexity = 4)
-#par(mfrow=c(3,1))
-plot(tICA$S, col=cols, cex=2, pch=16, main="Independent Component Analysis (ICA)\nSamples")
-plot(tTSNE.features$Y, main = "T-distributed Stochastic Neighbor Embedding (tSNE)\nFeatures")
-plot(tTSNE.samples$Y, main="T-distributed Stochastic Neighbor Embedding (tSNE)\nSamples", col=cols, pch=16, cex=3)
-
-# MetaboDiff::tsne_plot()
-# https://towardsdatascience.com/use-of-t-sne-to-reduce-the-dimensionality-of-metabolomics-datasets-f8a36120ca32
-# https://distill.pub/2016/misread-tsne/#citation
-# https://medium.com/@danielcanueto/validation-of-the-benefits-of-use-of-t-sne-in-metabolomics-studies-5018253b8173
-# https://medium.com/@TheDataGyan/dimensionality-reduction-with-pca-and-t-sne-in-r-2715683819
-
-df = data.frame(tsne::tsne(X = t %>% na.omit %>% t))
-colnames(df) = c("tSNE1","tSNE2")
-df$grouping = labels.plot
-ggplot(df, aes(x=tSNE1,y=tSNE2,colour=grouping)) + geom_point() + theme_classic() + scale_colour_manual(values=sample_colors)
-```
-
-
-```{r Metabolite Identification using MassBank of North America}
-significant_features_mz <- c(902.433, 532.044, 122.456) ### this list comes from prior statistical analysis
-identified <- list(NULL)
-ionization_mode <- "positive"
-mz_tolerance <- 0.5
-
-for(i in 1:length(significant_features_mz)){
-  lower_bound <- significant_features_mz[i] - mz_tolerance
-  upper_bound <- significant_features_mz[i] + mz_tolerance
-  identified[[i]] <- jsonlite::fromJSON(paste0("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData%3Dq%3D%27name%3D%3D%22total+exact+mass%22+and+value+%3E%3D+", lower_bound, "+and+value+%3C%3D+", upper_bound,
-"%27+and+(tags.text%3D%3D%22LC-MS%22)+and+(metaData%3Dq%3D%27name%3D%3D%22ionization+mode%22+and+value%3D%3D%22positive%22%27)+and+(metaData%3Dq%3D%27name%3D%3D%22ms+level%22+and+value%3D%3D%22MS1%22%27)&size=30&text="))
-  Sys.sleep(time = 5) ### introduce a small pause between searches to avoid IP ban
-}
-
-identified[[1]]$metaData[[1]]$value
-identified[[1]]$compound[[1]]$inchi
-identified[[1]]$compound[[1]]$names
-lapply(identified[[1]]$compound, `[`, 4) ### name of all hits for the first m/z value
-identified[[1]]$compound[[1]]$classification
-identified[[1]]$compound[[1]]$metaData[[1]]
-
-#decoded.url <- jsonlite::fromJSON("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData=q='name=="total exact mass" and value >= 245 and value <= 255' and (tags.text=="LC-MS") and (metaData=q='name=="ionization mode" and value=="positive"') and (metaData=q='name=="ms level" and value=="MS1"')&size=30&text=")
-
-#utils::URLdecode()
-```
-
-
-```{r Metabolite identification using Metlin}
-significant_features_mz <- c(418.2931, 540.29)
-mz_tolerance_ppm <- 5
-
-### Charge is ESI+
-### Adduct: M+H
-
-metlin_table <- list(NULL)
-metlin_res <- list(NULL)
-metlin_res_tbl <- list(NULL)
-
-for(i in 1:length(significant_features_mz)){
-  metlin_table[[i]] <- xml2::read_html(paste0('https://metlin.scripps.edu/simple_search_result.php?mass_mid=', significant_features_mz[i],
-       '&mass_tol=', mz_tolerance_ppm, '&mass_mode=1&AminoAcid=add&toxinEPA=add&adducts=M%2BH'))
-  metlin_res[[i]] <- rvest::html_nodes(metlin_table[[i]], "table")
-  metlin_res_tbl[[i]] <- rvest::html_table(metlin_res[[i]][1], fill = TRUE)
-  print(head(metlin_res_tbl[[i]][[1]]))
-}
-```
-
-
-```{r Metabolite identification using multiple databases}
-databases <- c("pubchem", "hmdb", "lipidmaps",
-               "flavonoidviewer", "knapsack",
-               "kegg", "pep1000", "exmassdb")
-
-mz_tolerance = 0.5
-target_masses = c(102.3201, 452.02)
-hits <- list(NULL)
-
-for(i in 1:length(target_masses)){
-  searches <- paste0("http://webs2.kazusa.or.jp/mfsearcher/", databases, "/mass?targetMs=", target_masses[i], "&margin=", mz_tolerance)
-  search_for_hits <- lapply(searches, FUN = read.csv, sep = "\t", header = FALSE,
-                            col.names = c("Database", "Molecular.Formula", "DBE", "Formula.Weight", "ID.in.DB", "Description"))
-  hits_merged <- Reduce(function(x, y) rbind(x, y), search_for_hits)
-  hits[[i]] <- hits_merged
-  rm(hits_merged)
-}
-```
-
-
-Processing with peakML  
-```{r PeakML}
-source ("http://puma.ibls.gla.ac.uk/mzmatch.R/install_mzmatch.R")
-.jinit ()
-mzmatch.init()
-PeakML.xcms.write(xsg.gaus.neg, "xsg_gaus_neg.peakml")
-mzmatch.init(version.1 = FALSE)
-mzmatch.ipeak.sort.MetAssign(JHeapSize = 180000, i = "xsg_gaus_neg.peakml", o = "xcms_identified.peakml", 
-                             basepeaks = "xcms_basepeaks.peakml", ppm = 3, numDraws = 300, burnIn = 200, 
-                             adducts = "M+H,M+NH4", 
-                             dbIdentOut = "xcms_neg_Probabilistic_metabolite_annotation.csv", v = TRUE)
-
-### PeakML.Viewer() ### Load generated peakML files
-```
-
-```{r apLCMS pipeline}
-#####This section is currently under construction (apLCMS might not be as reliable as xcms)
-#apLCMS.set <- apLCMS::cdf.to.ftr(path.pos, file.pattern = ".mzXML")
-```
-
-```{r IPO / XCMS Parameter Optimization, eval=FALSE}
-peakpickingParameters <- IPO::getDefaultXcmsSetStartingParams('centWave')
-peakpickingParameters$min_peakwidth <- c(12,35)
-peakpickingParameters$max_peakwidth <- c(15, 65)
-peakpickingParameters$ppm <- c(10,40)
-peakpickingParameters$snthresh <- c(10,80)
-peakpickingParameters$noise <- 5000
-peakpickingParameters$prefilter <- c(3,5)
-peakpickingParameters$value_of_prefilter <- c(3000,15000)
-peakpickingParameters$fitgauss <- TRUE
-peakpickingParameters$nSlaves <- 11
-
-data <- list.files("data/Rik/ESI+/", recursive = T, full.names = T, pattern = ".mzML")
-
-optimized.xcmsSet <- system.time({
-    resultPeakpicking <- optimizeXcmsSet(files = data, 
-                                         params = peakpickingParameters,
-                                         subdir = "IPO_plots", nSlaves = 12)
-})
-
-```
-
 ```{r XCMS3 Pipeline}
-register(bpstart(MulticoreParam(150)))
+#register(bpstart(MulticoreParam(150)))
 files.path <- "~/PRIMUS/data/83_BIOINFORMATICS/Ashkan/LC-MS/Data/QTOF_IMPC/Rik/ESI+"
 mzml.files <- list.files(files.path, recursive = T, full.names = T, pattern=".mzML")
 mzml.files
@@ -703,6 +218,8 @@ shiny_EIC <- function(){
 
 # # # # # # #
 
+
+
 ## For the ppm parameter we extract the full MS data (intensity, retention time and m/z values) corresponding to the above peak.
 ## To this end we first filter the raw object by retention time, then by m/z and finally plot the object with type = "XIC" to produce the plot below.
 ## the ppm parameter is usually set to a much higher value than advertised by the vendor of the machine
@@ -820,6 +337,7 @@ for(i in random_peak_idx){
     
     mzr <- c(chromPeaks(xdata)[i,"mzmin"] - 0.005, chromPeaks(xdata)[i,"mzmax"] + 0.005)
     rtr <- c(chromPeaks(xdata)[i,"rtmin"] %>% floor - 50, chromPeaks(xdata)[i,"rtmax"] %>% ceiling + 50)
+    chromPeaks(xdata, mz = mzr, rt = rtr) -> infoPeaks
     
     png(paste0("QC/09 - EIC/09 - Identified_peaks_in_mz_", mzr[1], "-", mzr[2], "_rt_", rtr[1], "-", rtr[2], ".png"), 
         width = 15, height = 11, unit = "in", res = 300)
@@ -829,7 +347,8 @@ for(i in random_peak_idx){
     
     chr_raw <- chromatogram(raw_data %>% filterFile(j), mz = mzr, rt = rtr)
     
-    plot(chr_raw, col = group_colors[chr_raw$sample_group], lwd = 2)
+    plot(chr_raw, col = group_colors[chr_raw$sample_group], lwd = 2, 
+         sub = paste0("SNR = ", paste((infoPeaks[which(infoPeaks[,"sample"] == j),"sn"]), collapse=" | ")))
     highlightChromPeaks(type = "polygon", xdata %>% filterFile(j), col = group_colors[chr_raw$sample_group], lty = 3, rt = rtr, mz = mzr)
     
     }
@@ -1102,6 +621,9 @@ xset_conv <- as(xdata, "xcmsSet")
 #xset_conv <- fillPeaks(xset_conv)
 sampclass(xset_conv) <- gsub("^.*\\.", "", sampclass(xset_conv))
 
+pdf(file = "QC/Diagnostic_Plots.PDF", onefile = TRUE)
+plotQC(xset_conv)
+dev.off()
 
 ## MetaboAnalyst matrix
 metaboanalyst_dat <- groupval(xset_conv, "medret", "into")
@@ -1869,7 +1391,7 @@ download.file("http://facultyweb.mga.edu/yingfeng.wang/research/metabolomics/mid
 ```
 
 
-```{r Batch Correction -- NOT FUNCTIONAL -- UNDER DEVELOPMENT}
+```{r Batch Correction}
 devtools::install_git("https://gitlab.com/CarlBrunius/batchCorr.git")
 
 peakList_QC_nofill <- read.csv("QC_HumanPlasma_3batches_with_QC/batchCorr_Data/transposed_PeakIntensityMatrix_MetaboAnalyst_withQCsamples.csv", header = T)
@@ -1957,4 +1479,193 @@ pattern <- isopattern(isotopes = isotopes, chemforms = internal_standards,
                       threshold = 0.1, plotit = TRUE, charge = FALSE, algo = 1, verbose = TRUE)
 
 isowrap(isotopes = isotopes, checked = chemforms_is, resmass = FALSE, resolution = 20000)
+```
+
+```{r Mice Data}
+con <- RMySQL::dbConnect(RMySQL::MySQL())
+lookup_IDs <- pheno_data %>% 
+  dplyr::filter(!sample_group %in% c("QC IS", "QC Plasma")) %>% 
+  select("sample_name") %>% 
+  c %>% 
+  unlist() %>% 
+  basename %>% substr(., 1, 9) %>% 
+  paste(collapse = "','")
+query <- paste0("SELECT ID,GENDER,STRAIN,ZYGOSITY,LITTER_ID,EXPORTED FROM SPECIMEN AS S WHERE S.ID IN ('", lookup_IDs, "')")
+DBI::dbGetQuery(con, query)
+RMySQL::dbDisconnect(con)
+```
+
+
+```{r QC}
+
+###intensity
+boxplot(groupval(xsg.gaus.pos, value="into")+1, 
+        col=as.numeric(sampclass(xsg.gaus.pos))+1, 
+        log="y", las=2)
+
+plotQC(xsg.gaus.pos)
+
+sdThresh <- 4.0 ## Filter low-standard deviation rows for plot
+data <- log(groupval(xsg.gaus.pos, value="into")+1)
+
+pca.result <- pcaMethods::pca(data, nPcs = 8)
+pcaMethods::plotPcs(pca.result, type="loadings", 
+        col=as.numeric(sampclass(xsg.gaus.pos))+1)
+
+pcares <- as.data.frame(pca.result@loadings)
+
+plotly::plot_ly(pcares, x = ~PC1, y = ~PC2, z = ~PC3, color = (sampclass(xsg.gaus.pos)), colors = c("#377EB8", "#4DAF4A")) %>%
+    add_markers() %>%
+    layout(scene = list(xaxis = list(title = 'PC #1'),
+                        yaxis = list(title = 'PC #2'),
+                        zaxis = list(title = 'PC #3')))
+
+#pca <- prcomp(t(data), scale.=TRUE)
+#gr <- factor(as.numeric(sampclass(xsg.gaus))+1)
+#summary(gr)
+#pca3d(pca, group=gr)
+```
+
+```{r Internal standard}
+mzml.file <- xcmsRaw("~/pbio/LC-MS/Data/QTOF_IMPC/FreezingExperiment/ESI+/14_days/83S-A0955_m_WT_FreezinExperiment2_14days_ESI+.mzML")
+mzr = c(288.2, 292.227)
+rtr = c(10.234*60, 10.402*60)
+plotRaw(mzml.file, mzrange = mzr, rtrange = rtr)
+
+all.mzml <- extractMsData(readMSData(list.files(path = "~/pbio/LC-MS/Data/QTOF_IMPC/FreezingExperiment/ESI+/28_days/", full.names = T), mode = "onDisk"), mz = mzr, rtr)
+for(i in 1:length(all.mzml)){
+    ggsave(filename = paste0("internal_standard",i,".png"), 
+           plot = plotMsData(all.mzml[[i]]), 
+           device = "png", dpi = 600, 
+           width = 10, height = 10)
+    graphics.off()
+}
+```
+
+```{r Independent Component Analysis (ICA) / T-distributed Stochastic Neighbor Embedding (tSNE) --- UNDER DEVELOPMENT | Be cautious}
+t <- dat
+head(t)
+labels.plot <- t[1,][-1]
+t <- t[-1,]
+
+# for(i in 1:dim(t)[2]){
+# t[,i] <- as.numeric(as.character(t[,i]))
+# }
+
+write.csv(x = t, file = "t.csv")
+t <- (read.csv("t.csv", header = TRUE, stringsAsFactors = FALSE, row.names = 1, check.names = FALSE))
+
+tICA <- fastICA::fastICA(t, n.comp = 2)
+
+sample_colors <- brewer.pal(2, "Set1")[1:2]
+names(sample_colors) <- unique(labels.plot)
+cols <- paste0(sample_colors[labels.plot], 80)
+tTSNE.features <- Rtsne(t)
+tTSNE.samples <- Rtsne(t(t), perplexity = 4)
+#par(mfrow=c(3,1))
+plot(tICA$S, col=cols, cex=2, pch=16, main="Independent Component Analysis (ICA)\nSamples")
+plot(tTSNE.features$Y, main = "T-distributed Stochastic Neighbor Embedding (tSNE)\nFeatures")
+plot(tTSNE.samples$Y, main="T-distributed Stochastic Neighbor Embedding (tSNE)\nSamples", col=cols, pch=16, cex=3)
+
+# MetaboDiff::tsne_plot()
+# https://towardsdatascience.com/use-of-t-sne-to-reduce-the-dimensionality-of-metabolomics-datasets-f8a36120ca32
+# https://distill.pub/2016/misread-tsne/#citation
+# https://medium.com/@danielcanueto/validation-of-the-benefits-of-use-of-t-sne-in-metabolomics-studies-5018253b8173
+# https://medium.com/@TheDataGyan/dimensionality-reduction-with-pca-and-t-sne-in-r-2715683819
+
+df = data.frame(tsne::tsne(X = t %>% na.omit %>% t))
+colnames(df) = c("tSNE1","tSNE2")
+df$grouping = labels.plot
+ggplot(df, aes(x=tSNE1,y=tSNE2,colour=grouping)) + geom_point() + theme_classic() + scale_colour_manual(values=sample_colors)
+```
+
+
+```{r Metabolite Identification using MassBank of North America}
+significant_features_mz <- c(902.433, 532.044, 122.456) ### this list comes from prior statistical analysis
+identified <- list(NULL)
+ionization_mode <- "positive"
+mz_tolerance <- 0.5
+
+for(i in 1:length(significant_features_mz)){
+  lower_bound <- significant_features_mz[i] - mz_tolerance
+  upper_bound <- significant_features_mz[i] + mz_tolerance
+  identified[[i]] <- jsonlite::fromJSON(paste0("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData%3Dq%3D%27name%3D%3D%22total+exact+mass%22+and+value+%3E%3D+", lower_bound, "+and+value+%3C%3D+", upper_bound,
+"%27+and+(tags.text%3D%3D%22LC-MS%22)+and+(metaData%3Dq%3D%27name%3D%3D%22ionization+mode%22+and+value%3D%3D%22positive%22%27)+and+(metaData%3Dq%3D%27name%3D%3D%22ms+level%22+and+value%3D%3D%22MS1%22%27)&size=30&text="))
+  Sys.sleep(time = 5) ### introduce a small pause between searches to avoid IP ban
+}
+
+identified[[1]]$metaData[[1]]$value
+identified[[1]]$compound[[1]]$inchi
+identified[[1]]$compound[[1]]$names
+lapply(identified[[1]]$compound, `[`, 4) ### name of all hits for the first m/z value
+identified[[1]]$compound[[1]]$classification
+identified[[1]]$compound[[1]]$metaData[[1]]
+
+#decoded.url <- jsonlite::fromJSON("http://mona.fiehnlab.ucdavis.edu/rest/spectra/search?page=0&query=compound.metaData=q='name=="total exact mass" and value >= 245 and value <= 255' and (tags.text=="LC-MS") and (metaData=q='name=="ionization mode" and value=="positive"') and (metaData=q='name=="ms level" and value=="MS1"')&size=30&text=")
+
+#utils::URLdecode()
+```
+
+
+```{r Metabolite identification using Metlin}
+significant_features_mz <- c(418.2931, 540.29)
+mz_tolerance_ppm <- 5
+
+### Charge is ESI+
+### Adduct: M+H
+
+metlin_table <- list(NULL)
+metlin_res <- list(NULL)
+metlin_res_tbl <- list(NULL)
+
+for(i in 1:length(significant_features_mz)){
+  metlin_table[[i]] <- xml2::read_html(paste0('https://metlin.scripps.edu/simple_search_result.php?mass_mid=', significant_features_mz[i],
+       '&mass_tol=', mz_tolerance_ppm, '&mass_mode=1&AminoAcid=add&toxinEPA=add&adducts=M%2BH'))
+  metlin_res[[i]] <- rvest::html_nodes(metlin_table[[i]], "table")
+  metlin_res_tbl[[i]] <- rvest::html_table(metlin_res[[i]][1], fill = TRUE)
+  print(head(metlin_res_tbl[[i]][[1]]))
+}
+```
+
+
+```{r Metabolite identification using multiple databases}
+databases <- c("pubchem", "hmdb", "lipidmaps",
+               "flavonoidviewer", "knapsack",
+               "kegg", "pep1000", "exmassdb")
+
+mz_tolerance = 0.5
+target_masses = c(102.3201, 452.02)
+hits <- list(NULL)
+
+for(i in 1:length(target_masses)){
+  searches <- paste0("http://webs2.kazusa.or.jp/mfsearcher/", databases, "/mass?targetMs=", target_masses[i], "&margin=", mz_tolerance)
+  search_for_hits <- lapply(searches, FUN = read.csv, sep = "\t", header = FALSE,
+                            col.names = c("Database", "Molecular.Formula", "DBE", "Formula.Weight", "ID.in.DB", "Description"))
+  hits_merged <- Reduce(function(x, y) rbind(x, y), search_for_hits)
+  hits[[i]] <- hits_merged
+  rm(hits_merged)
+}
+```
+
+
+```{r IPO / XCMS Parameter Optimization, eval=FALSE}
+peakpickingParameters <- IPO::getDefaultXcmsSetStartingParams('centWave')
+peakpickingParameters$min_peakwidth <- c(12,35)
+peakpickingParameters$max_peakwidth <- c(15, 65)
+peakpickingParameters$ppm <- c(10,40)
+peakpickingParameters$snthresh <- c(10,80)
+peakpickingParameters$noise <- 5000
+peakpickingParameters$prefilter <- c(3,5)
+peakpickingParameters$value_of_prefilter <- c(3000,15000)
+peakpickingParameters$fitgauss <- TRUE
+peakpickingParameters$nSlaves <- 11
+
+data <- list.files("data/Rik/ESI+/", recursive = T, full.names = T, pattern = ".mzML")
+
+optimized.xcmsSet <- system.time({
+    resultPeakpicking <- optimizeXcmsSet(files = data, 
+                                         params = peakpickingParameters,
+                                         subdir = "IPO_plots", nSlaves = 12)
+})
+
 ```
