@@ -8,15 +8,16 @@ dpi <- 250
 fontSize <- 3000
 destPath <- "~/PRIMUS/data/18_lab/MALDI Imaging/Scimax_Rapiflex/Venn"
 
+fill.colors <- c("#53e007","#e02807","#07bfe0","#9407e0")
 
 
 #### Significant Peaks ####
 png(filename = paste0(destPath,"/SigPeaks.PNG"), 
     width = pWidth, height = pHeight, res = dpi, units = "px", pointsize = fontSize)
-plot(fills = c("#53e007","#9407e0","#07bfe0","#e02807"),
+plot(fills = fill.colors,
   eulerr::venn(c("LC-MS" = 68,
-                 "MRMS-FIA" = 366,
                  "MRMS-MALDI" = 327,
+                 "MRMS-FIA" = 366,
                  "MALDI-TOF" = 9,
                  "LC-MS&MRMS-FIA" = 6,
                  "LC-MS&MRMS-MALDI" = 2,
@@ -30,10 +31,10 @@ dev.off()
 #### All Peaks ####
 png(filename = paste0(destPath,"/AllPeaks.PNG"), 
     width = pWidth, height = pHeight, res = dpi, units = "px", pointsize = fontSize)
-plot(fills = c("#53e007","#9407e0","#07bfe0","#e02807"),
-  eulerr::venn(c("LC-MS" = 5218,  
-                 "MRMS-FIA" = 6682, 
+plot(fills = fill.colors,
+  eulerr::venn(c("LC-MS" = 5218,
                  "MRMS-MALDI" = 5246,
+                 "MRMS-FIA" = 6682, 
                  "MALDI-TOF" = 982,
                  "LC-MS&MALDI-TOF" = 110, 
                  "LC-MS&MRMS-FIA" = 1365, 
@@ -54,7 +55,7 @@ dev.off()
 #### Mixed Model Peaks ####
 png(filename = paste0(destPath,"/MixedModel.PNG"), 
     width = pWidth, height = pHeight, res = dpi, units = "px", pointsize = fontSize)
-eulerr::venn(c("LC-MS"=437, "MRMS-FIA"=677,"MRMS-MALDI"=483, "MALDI-TOF"=213,
+eulerr::venn(c("LC-MS"=437, "MRMS-MALDI"=483, "MRMS-FIA"=677, "MALDI-TOF"=213,
                "LC-MS&MRMS-FIA"=18, 
                "LC-MS&MALDI-TOF"=1,
                "LC-MS&MRMS-MALDI"=14, 
