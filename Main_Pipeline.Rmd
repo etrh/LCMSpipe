@@ -1408,7 +1408,7 @@ peakList_QC_imputed[match((metadata_humanPlasma$X), rownames(peakList_QC_imputed
 ## Perform batch alignment
 
 # Extract peakinfo (i.e. m/z and rt of features)
-peakIn <- peakInfo(PT = peakList_QC_nofill_sorted, sep = 'T', start = 2)
+peakIn <- peakInfo(PT = peakList_QC_nofill_sorted, sep = 'T', timepos = 2, start = 2)
 
 # Perform multi-batch alignment
 alignBat <- alignBatches(peakInfo = peakIn, PeakTabNoFill = peakList_QC_nofill_sorted, 
