@@ -1,6 +1,6 @@
 ---
 title: "Pipeline for Analysis of Metabolomics Data in R"
-author: "Ashkan Zareie"
+author: "Ashkan Z."
 date: "Since 08/2017"
 output: 
   html_document:
